@@ -1,0 +1,43 @@
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+vendor/
+
+# Logs and runtime files
+*.log
+error_log
+access_log
+php-server-*.log
+sess_*
+cache/
+tmp/
+temp/
+
+# Build / test output
+dist/
+build/
+coverage/
+
+# Local tool metadata
+.claude/
+
+# Database backups and local dumps
+database/*backup*/
+database/* backup*/
+*_backup.sql
+*.bak
+
+# Generated local files
+api/.DS_Store

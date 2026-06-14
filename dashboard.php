@@ -1,0 +1,274 @@
+<?php
+// ============================================================
+//  CODE ARENA - Student Dashboard
+// ============================================================
+require_once 'includes/session.php';
+requireLogin();
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Code Arena</title>
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <style>
+        .dash-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; margin-bottom:28px; }
+        .dash-head p { color:var(--text-muted); margin-top:6px; }
+        .dash-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .metric-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+        .metric { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+        .metric-value { font-family:'Plus Jakarta Sans',sans-serif; font-size:2rem; font-weight:800; line-height:1; }
+        .metric-label { color:var(--text-muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; margin-top:8px; }
+        .dashboard-grid { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr); gap:24px; align-items:start; }
+        .stack { display:flex; flex-direction:column; gap:16px; }
+        .section-title { display:flex; justify-content:space-between; gap:14px; align-items:center; margin-bottom:14px; }
+        .section-title h3 { font-size:1rem; }
+        .section-title a { color:var(--accent); font-size:.84rem; }
+        .next-card { border:1px solid rgba(0,232,122,.28); background:linear-gradient(135deg,rgba(0,232,122,.08),rgba(108,160,255,.06)); border-radius:var(--radius); padding:18px; }
+        .next-card h3 { font-size:1.2rem; margin-bottom:8px; }
+        .next-meta { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 16px; }
+        .tag { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; background:var(--bg-card2); color:var(--text-muted); font-size:.75rem; }
+        .progress-wrap { height:8px; background:var(--border); border-radius:999px; overflow:hidden; margin:10px 0 8px; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--blue)); border-radius:999px; }
+        .problem-list, .contest-list, .submission-list { display:flex; flex-direction:column; gap:10px; }
+        .problem-row, .contest-row, .submission-row { display:grid; gap:10px; align-items:center; padding:12px; background:var(--bg-card2); border:1px solid var(--border); border-radius:var(--radius-sm); }
+        .problem-row { grid-template-columns:1fr auto; }
+        .contest-row { grid-template-columns:1fr auto; }
+        .submission-row { grid-template-columns:1fr auto auto; }
+        .row-title { font-weight:650; color:var(--text); }
+        .row-title:hover { color:var(--accent); }
+        .row-sub { color:var(--text-muted); font-size:.78rem; margin-top:2px; }
+        .muted-empty { color:var(--text-muted); font-size:.88rem; padding:10px 0; }
+        .mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .mini-card { background:var(--bg-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; }
+        .mini-card strong { display:block; font-size:1.4rem; line-height:1; }
+        .mini-card span { color:var(--text-muted); font-size:.78rem; }
+        @media(max-width:900px) {
+            .dash-head { align-items:flex-start; flex-direction:column; }
+            .metric-grid { grid-template-columns:repeat(2,1fr); }
+            .dashboard-grid { grid-template-columns:1fr; }
+        }
+        @media(max-width:560px) {
+            .metric-grid, .mini-grid { grid-template-columns:1fr; }
+            .problem-row, .contest-row, .submission-row { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<?php require_once 'includes/navbar.php'; ?>
+
+<div class="page">
+<div class="container">
+    <div class="dash-head fade-up">
+        <div>
+            <h1>Dashboard</h1>
+            <p id="welcome-text">Loading your training snapshot...</p>
+        </div>
+        <div class="dash-actions">
+            <a class="btn-outline" href="/code-arena/problems.php?saved=1">Saved</a>
+            <a class="btn-primary" href="/code-arena/roadmap.php">Roadmap</a>
+        </div>
+    </div>
+
+    <div class="metric-grid fade-up fade-up-1" id="metric-grid"></div>
+
+    <div class="dashboard-grid">
+        <main class="stack">
+            <section class="next-card fade-up fade-up-2" id="next-card">
+                <p class="muted-empty">Loading recommendation...</p>
+            </section>
+
+            <section class="card fade-up fade-up-3">
+                <div class="section-title">
+                    <h3>Today Roadmap</h3>
+                    <a href="/code-arena/roadmap.php">Open roadmap</a>
+                </div>
+                <div id="roadmap-card"></div>
+            </section>
+
+            <section class="card fade-up fade-up-4">
+                <div class="section-title">
+                    <h3>Saved Queue</h3>
+                    <a href="/code-arena/problems.php?saved=1">View saved</a>
+                </div>
+                <div class="problem-list" id="saved-list"></div>
+            </section>
+        </main>
+
+        <aside class="stack">
+            <section class="card fade-up fade-up-2">
+                <div class="section-title">
+                    <h3>Focus</h3>
+                    <a href="/code-arena/profile.php">Profile</a>
+                </div>
+                <div class="mini-grid" id="focus-grid"></div>
+            </section>
+
+            <section class="card fade-up fade-up-3">
+                <div class="section-title">
+                    <h3>Contests</h3>
+                    <a href="/code-arena/contests.php">All contests</a>
+                </div>
+                <div class="contest-list" id="contest-list"></div>
+            </section>
+
+            <section class="card fade-up fade-up-4">
+                <div class="section-title">
+                    <h3>Recent Submissions</h3>
+                    <a href="/code-arena/submissions.php">View all</a>
+                </div>
+                <div class="submission-list" id="submission-list"></div>
+            </section>
+        </aside>
+    </div>
+</div>
+</div>
+
+<script src="/code-arena/assets/js/main.js"></script>
+<script>
+function escHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[ch]));
+}
+
+function tagList(tags) {
+    return String(tags || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 3)
+        .map(t => `<span class="tag">${escHtml(t.replace(/-/g, ' '))}</span>`).join('');
+}
+
+function problemRow(p, extra = '') {
+    return `
+        <div class="problem-row">
+            <div>
+                <a class="row-title" href="/code-arena/problem.php?slug=${encodeURIComponent(p.slug)}">${escHtml(p.title)}</a>
+                <div class="row-sub">${tagList(p.tags)} ${extra}</div>
+            </div>
+            ${difficultyBadge(p.difficulty)}
+        </div>`;
+}
+
+async function loadDashboard() {
+    const { ok, data } = await api('/code-arena/api/users/dashboard.php');
+    if (!ok || !data.success) {
+        toast(data.message || 'Failed to load dashboard', 'error');
+        return;
+    }
+
+    const d = data.data;
+    const s = d.stats;
+    const accepted = Number(s.accepted_submissions || 0);
+    const total = Number(s.total_submissions || 0);
+    const acceptance = total ? Math.round(accepted / total * 100) : 0;
+
+    document.getElementById('welcome-text').textContent =
+        `Welcome back, ${d.user.username}. Pick the next useful problem and keep the streak moving.`;
+
+    document.getElementById('metric-grid').innerHTML = `
+        <div class="metric"><div class="metric-value">${s.solved_problems}</div><div class="metric-label">Solved</div></div>
+        <div class="metric"><div class="metric-value">${acceptance}%</div><div class="metric-label">Acceptance</div></div>
+        <div class="metric"><div class="metric-value">${s.streak_days}</div><div class="metric-label">Day Streak</div></div>
+        <div class="metric"><div class="metric-value">${d.user.learning_rating || 1200}</div><div class="metric-label">Learning Rating</div></div>`;
+
+    renderNext(d.recommended_problem, d.weak_topic, d.roadmap.next_problem);
+    renderRoadmap(d.roadmap);
+    renderSaved(d.saved_problems || []);
+    renderFocus(d);
+    renderContests(d.contests || []);
+    renderRecent(d.recent_submissions || []);
+}
+
+function renderNext(recommended, weakTopic, nextRoadmap) {
+    const p = recommended || nextRoadmap;
+    const el = document.getElementById('next-card');
+    if (!p) {
+        el.innerHTML = '<h3>No pending public problems</h3><p class="muted-empty">You are caught up for now.</p>';
+        return;
+    }
+    const reason = weakTopic
+        ? `Recommended because ${weakTopic.tag.replace(/-/g, ' ')} is your current weak topic.`
+        : 'Recommended from your unsolved public problem queue.';
+    el.innerHTML = `
+        <h3>${escHtml(p.title)}</h3>
+        <p style="color:var(--text-muted)">${escHtml(reason)}</p>
+        <div class="next-meta">
+            ${difficultyBadge(p.difficulty)}
+            ${p.roadmap_day ? `<span class="tag">Day ${p.roadmap_day}</span>` : ''}
+            ${tagList(p.tags)}
+        </div>
+        <a class="btn-primary" href="/code-arena/problem.php?slug=${encodeURIComponent(p.slug)}">Start Problem</a>`;
+}
+
+function renderRoadmap(roadmap) {
+    const total = Number(roadmap.total || 0);
+    const solved = Number(roadmap.solved || 0);
+    const pct = total ? Math.round(solved / total * 100) : 0;
+    const problems = (roadmap.problems || []).map(p =>
+        problemRow(p, Number(p.solved) ? '<span class="tag">Solved</span>' : '')
+    ).join('');
+    document.getElementById('roadmap-card').innerHTML = `
+        <div style="display:flex;justify-content:space-between;gap:12px;color:var(--text-muted);font-size:.88rem">
+            <span>Day ${roadmap.day}</span><span>${solved}/${total} solved</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="problem-list" style="margin-top:14px">${problems || '<p class="muted-empty">No roadmap problems for this day.</p>'}</div>`;
+}
+
+function renderSaved(rows) {
+    const el = document.getElementById('saved-list');
+    if (!rows.length) {
+        el.innerHTML = '<p class="muted-empty">No saved problems yet.</p>';
+        return;
+    }
+    el.innerHTML = rows.map(p => problemRow(p, Number(p.solved) ? '<span class="tag">Solved</span>' : '')).join('');
+}
+
+function renderFocus(d) {
+    const weak = d.weak_topic
+        ? `${d.weak_topic.tag.replace(/-/g, ' ')} (${d.weak_topic.failure_rate}%)`
+        : 'No weak topic yet';
+    document.getElementById('focus-grid').innerHTML = `
+        <div class="mini-card"><strong>${d.roadmap.day}</strong><span>Current roadmap day</span></div>
+        <div class="mini-card"><strong>${d.stats.attempted_problems}</strong><span>Attempted problems</span></div>
+        <div class="mini-card"><strong>${d.user.hardcore_rating || 1200}</strong><span>Hardcore rating</span></div>
+        <div class="mini-card"><strong style="font-size:1rem;line-height:1.25">${escHtml(weak)}</strong><span>Weak topic</span></div>`;
+}
+
+function renderContests(rows) {
+    const el = document.getElementById('contest-list');
+    if (!rows.length) {
+        el.innerHTML = '<p class="muted-empty">No active or upcoming contests.</p>';
+        return;
+    }
+    el.innerHTML = rows.map(c => `
+        <div class="contest-row">
+            <div>
+                <a class="row-title" href="/code-arena/contest.php?id=${c.id}">${escHtml(c.title)}</a>
+                <div class="row-sub">${c.status} - ${new Date(c.start_time).toLocaleString()}</div>
+            </div>
+            <span class="tag">${Number(c.registered) ? 'Registered' : 'Open'}</span>
+        </div>`).join('');
+}
+
+function renderRecent(rows) {
+    const el = document.getElementById('submission-list');
+    if (!rows.length) {
+        el.innerHTML = '<p class="muted-empty">No submissions yet.</p>';
+        return;
+    }
+    el.innerHTML = rows.map(s => `
+        <div class="submission-row">
+            <div>
+                <a class="row-title" href="/code-arena/problem.php?slug=${encodeURIComponent(s.problem_slug)}">${escHtml(s.problem_title)}</a>
+                <div class="row-sub">${langName(s.language)} - ${timeAgo(s.submitted_at)}</div>
+            </div>
+            ${statusBadge(s.status)}
+            ${difficultyBadge(s.difficulty)}
+        </div>`).join('');
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
