@@ -22,7 +22,7 @@ if ($method === 'GET' && !empty($_GET['id'])) {
 
     // Ownership check for non-admins
     if (!isAdmin()) {
-        $ownSt = $pdo->prepare('SELECT created_by FROM problems WHERE id = ?');
+        $ownSt = $pdo->prepare('SELECT created_by FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
         $ownSt->execute([$id]);
         if ($ownSt->fetchColumn() != $userId) err('Forbidden', 403);
     }
@@ -31,7 +31,7 @@ if ($method === 'GET' && !empty($_GET['id'])) {
         'SELECT id, title, slug, difficulty, description, examples, constraints,
                 test_cases, tags, roadmap_day, hint_tier1, hint_tier2, hint_tier3,
                 time_limit_ms, memory_limit_mb, is_public, created_at
-         FROM problems WHERE id = ?'
+         FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([$id]);
     $problem = $stmt->fetch();
@@ -41,7 +41,7 @@ if ($method === 'GET' && !empty($_GET['id'])) {
 
 // ── List ─────────────────────────────────────────────────────
 if ($method === 'GET') {
-    $where  = isAdmin() ? '1' : 'created_by = ?';
+    $where  = isAdmin() ? 'COALESCE(is_deleted, 0) = 0' : 'created_by = ? AND COALESCE(is_deleted, 0) = 0';
     $params = isAdmin() ? []  : [$userId];
 
     $stmt = $pdo->prepare(
@@ -65,7 +65,7 @@ function uniqueSlug(PDO $pdo, string $base, ?int $excludeId = null): string {
     do {
         $candidate = $i === 0 ? $slug : "$slug-$i";
         $st = $pdo->prepare(
-            'SELECT COUNT(*) FROM problems WHERE slug = ? AND id != ?'
+            'SELECT COUNT(*) FROM problems WHERE slug = ? AND id != ? AND COALESCE(is_deleted, 0) = 0'
         );
         $st->execute([$candidate, $excludeId ?? 0]);
         if ($st->fetchColumn() == 0) return $candidate;
@@ -127,7 +127,7 @@ if ($method === 'PUT') {
 
     // Ownership check
     if (!isAdmin()) {
-        $ownSt = $pdo->prepare('SELECT created_by FROM problems WHERE id = ?');
+        $ownSt = $pdo->prepare('SELECT created_by FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
         $ownSt->execute([$id]);
         $own = $ownSt->fetchColumn();
         if ($own != $userId) err('Forbidden', 403);
@@ -156,7 +156,7 @@ if ($method === 'PUT') {
     if (!$fields) err('Nothing to update');
 
     $params[] = $id;
-    $pdo->prepare('UPDATE problems SET ' . implode(', ', $fields) . ' WHERE id = ?')
+    $pdo->prepare('UPDATE problems SET ' . implode(', ', $fields) . ' WHERE id = ? AND COALESCE(is_deleted, 0) = 0')
         ->execute($params);
     ok(null, 'Problem updated');
 }
@@ -168,12 +168,12 @@ if ($method === 'DELETE') {
     if (!$id) err('id required');
 
     if (!isAdmin()) {
-        $ownSt = $pdo->prepare('SELECT created_by FROM problems WHERE id = ?');
+        $ownSt = $pdo->prepare('SELECT created_by FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
         $ownSt->execute([$id]);
         if ($ownSt->fetchColumn() != $userId) err('Forbidden', 403);
     }
 
-    $pdo->prepare('DELETE FROM problems WHERE id = ?')->execute([$id]);
+    $pdo->prepare('UPDATE problems SET is_deleted = 1, is_public = 0 WHERE id = ?')->execute([$id]);
     ok(null, 'Problem deleted');
 }
 

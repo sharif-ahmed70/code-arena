@@ -14,7 +14,7 @@ $stmt = $pdo->prepare(
     'SELECT id, title, slug, difficulty, description, examples, constraints,
             tags, roadmap_day, hint_tier1, hint_tier2, hint_tier3,
             total_submissions, total_accepted, time_limit_ms
-     FROM problems WHERE slug = ? AND is_public = 1'
+     FROM problems WHERE slug = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0'
 );
 $stmt->execute([$slug]);
 $problem = $stmt->fetch();
@@ -54,7 +54,7 @@ if ($userId) {
 $discStmt = $pdo->prepare(
     'SELECT p.id, p.title, p.comment_count, p.created_at, u.username AS author
      FROM discuss_posts p
-     JOIN users u ON u.id = p.user_id
+     JOIN users u ON u.id = p.user_id AND COALESCE(u.is_deleted, 0) = 0
      WHERE p.problem_id = ?
      ORDER BY p.comment_count DESC, p.created_at DESC
      LIMIT 5'

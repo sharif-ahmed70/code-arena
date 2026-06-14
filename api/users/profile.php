@@ -17,20 +17,20 @@ $profileId = (int)($_GET['id'] ?? 0);
 if ($profileId) {
     $stmt = $pdo->prepare(
         'SELECT id, username, role, hardcore_rating, learning_rating, roadmap_day, created_at
-         FROM users WHERE id = ?'
+         FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([$profileId]);
 } elseif ($username) {
     $stmt = $pdo->prepare(
         'SELECT id, username, role, hardcore_rating, learning_rating, roadmap_day, created_at
-         FROM users WHERE username = ?'
+         FROM users WHERE username = ? AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([$username]);
 } else {
     requireLogin();
     $stmt = $pdo->prepare(
         'SELECT id, username, email, role, hardcore_rating, learning_rating, roadmap_day, created_at
-         FROM users WHERE id = ?'
+         FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([currentUserId()]);
 }
@@ -58,7 +58,7 @@ $stats = $statsStmt->fetch();
 $diffStmt = $pdo->prepare(
     'SELECT p.difficulty, COUNT(DISTINCT s.problem_id) AS cnt
      FROM submissions s
-     JOIN problems p ON p.id = s.problem_id
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      WHERE s.user_id = ? AND s.status = "Accepted"
      GROUP BY p.difficulty'
 );
@@ -73,7 +73,7 @@ $recStmt = $pdo->prepare(
     'SELECT s.id, s.status, s.language, s.submitted_at,
             p.title AS problem_title, p.slug AS problem_slug, p.difficulty
      FROM submissions s
-     JOIN problems p ON p.id = s.problem_id
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      WHERE s.user_id = ?
      ORDER BY s.submitted_at DESC LIMIT 10'
 );
@@ -144,7 +144,7 @@ $weakRawStmt = $pdo->prepare(
             COUNT(*) AS total_attempts,
             SUM(s.status != "Accepted") AS failures
      FROM submissions s
-     JOIN problems p ON p.id = s.problem_id
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      WHERE s.user_id = ?
      GROUP BY s.problem_id, p.tags'
 );

@@ -22,7 +22,7 @@ enforceRateLimit($pdo, rateLimitKey('login', $identifier), 8, 15 * 60);
 try {
     $stmt = $pdo->prepare(
         'SELECT id, username, email, password, role, COALESCE(is_blocked, 0) AS is_blocked
-         FROM users WHERE username = ? OR email = ?'
+         FROM users WHERE (username = ? OR email = ?) AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([$identifier, $identifier]);
     $user = $stmt->fetch();

@@ -7,8 +7,8 @@ require_once 'includes/adminAuthMiddleware.php';
 requireAdminPage();
 require_once 'config/db.php';
 
-$totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
-$totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems')->fetchColumn();
+$totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE COALESCE(is_deleted, 0) = 0')->fetchColumn();
+$totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems WHERE COALESCE(is_deleted, 0) = 0')->fetchColumn();
 $totalSubs     = (int) $pdo->query('SELECT COUNT(*) FROM submissions')->fetchColumn();
 $totalContests = (int) $pdo->query('SELECT COUNT(*) FROM contests')->fetchColumn();
 $activeUsers7d = (int) $pdo->query('SELECT COUNT(DISTINCT user_id) FROM submissions WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();

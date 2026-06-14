@@ -17,7 +17,7 @@ $userId = currentUserId();
 function loadManagedContest(PDO $pdo, int $contestId, int $userId): array {
     $stmt = $pdo->prepare(
         'SELECT c.*, u.username AS author
-         FROM contests c JOIN users u ON u.id = c.created_by
+         FROM contests c JOIN users u ON u.id = c.created_by AND COALESCE(u.is_deleted, 0) = 0
          WHERE c.id = ?'
     );
     $stmt->execute([$contestId]);
@@ -32,7 +32,7 @@ function contestPayload(PDO $pdo, array $contest): array {
         'SELECT cp.id AS contest_problem_id, cp.problem_id, cp.points, cp.order_index,
                 p.title, p.slug, p.difficulty
          FROM contest_problems cp
-         JOIN problems p ON p.id = cp.problem_id
+         JOIN problems p ON p.id = cp.problem_id AND COALESCE(p.is_deleted, 0) = 0
          WHERE cp.contest_id = ?
          ORDER BY cp.order_index, cp.id'
     );
@@ -41,7 +41,7 @@ function contestPayload(PDO $pdo, array $contest): array {
     $partStmt = $pdo->prepare(
         'SELECT cp.id AS participant_id, cp.user_id, u.username, u.email, cp.registered_at
          FROM contest_participants cp
-         JOIN users u ON u.id = cp.user_id
+         JOIN users u ON u.id = cp.user_id AND COALESCE(u.is_deleted, 0) = 0
          WHERE cp.contest_id = ?
          ORDER BY cp.registered_at DESC'
     );
@@ -98,7 +98,7 @@ if ($action === 'add_problem') {
     $points = max(1, (int)($body['points'] ?? 100));
     if (!$problemId) err('problem_id required');
 
-    $check = $pdo->prepare('SELECT id FROM problems WHERE id = ? AND is_public = 1');
+    $check = $pdo->prepare('SELECT id FROM problems WHERE id = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0');
     $check->execute([$problemId]);
     if (!$check->fetchColumn()) err('Problem not found', 404);
 

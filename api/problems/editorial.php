@@ -15,7 +15,7 @@ $userId = currentUserId();
 $method = $_SERVER['REQUEST_METHOD'];
 
 function loadEditableProblem(PDO $pdo, int $problemId, int $userId): array {
-    $stmt = $pdo->prepare('SELECT id, title, slug, difficulty, created_by FROM problems WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, title, slug, difficulty, created_by FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
     $stmt->execute([$problemId]);
     $problem = $stmt->fetch();
     if (!$problem) err('Problem not found', 404);

@@ -60,7 +60,7 @@ enforceRateLimit($pdo, rateLimitKey('submit', (string)$userId), 20, 60);
 $stmt = $pdo->prepare(
     'SELECT id, title, difficulty, test_cases, total_submissions, total_accepted,
             time_limit_ms, roadmap_day
-     FROM problems WHERE id = ? AND is_public = 1'
+     FROM problems WHERE id = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0'
 );
 $stmt->execute([$problemId]);
 $problem = $stmt->fetch();
@@ -126,10 +126,10 @@ $ins->execute([
 $submissionId = (int) $pdo->lastInsertId();
 
 // ── Update problem counters ──────────────────────────────────
-$pdo->prepare('UPDATE problems SET total_submissions = total_submissions + 1 WHERE id = ?')
+$pdo->prepare('UPDATE problems SET total_submissions = total_submissions + 1 WHERE id = ? AND COALESCE(is_deleted, 0) = 0')
     ->execute([$problemId]);
 if ($verdict === 'Accepted') {
-    $pdo->prepare('UPDATE problems SET total_accepted = total_accepted + 1 WHERE id = ?')
+    $pdo->prepare('UPDATE problems SET total_accepted = total_accepted + 1 WHERE id = ? AND COALESCE(is_deleted, 0) = 0')
         ->execute([$problemId]);
 }
 
@@ -217,7 +217,7 @@ function updateRatings(PDO $pdo, int $userId, array $problem, int $hintsUsed): a
     }
 
     // Load current ratings
-    $rRow = $pdo->prepare('SELECT learning_rating, hardcore_rating FROM users WHERE id = ?');
+    $rRow = $pdo->prepare('SELECT learning_rating, hardcore_rating FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
     $rRow->execute([$userId]);
     $ratings = $rRow->fetch();
 
@@ -256,7 +256,7 @@ function checkRoadmapUnlock(PDO $pdo, int $userId, array $problem): void {
     if (!$day) return;
 
     // All problems for this roadmap day
-    $stmt = $pdo->prepare('SELECT id FROM problems WHERE roadmap_day = ? AND is_public = 1');
+    $stmt = $pdo->prepare('SELECT id FROM problems WHERE roadmap_day = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0');
     $stmt->execute([$day]);
     $dayProblems = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
@@ -283,6 +283,6 @@ function checkRoadmapUnlock(PDO $pdo, int $userId, array $problem): void {
         ->execute([$userId, $day]);
 
     // Advance user's roadmap_day
-    $pdo->prepare('UPDATE users SET roadmap_day = GREATEST(roadmap_day, ?) WHERE id = ?')
+    $pdo->prepare('UPDATE users SET roadmap_day = GREATEST(roadmap_day, ?) WHERE id = ? AND COALESCE(is_deleted, 0) = 0')
         ->execute([$day + 1, $userId]);
 }

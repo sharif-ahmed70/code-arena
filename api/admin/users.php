@@ -26,6 +26,7 @@ if ($method === 'GET') {
 
     $where  = [];
     $params = [];
+    $where[] = 'COALESCE(is_deleted, 0) = 0';
     if ($search) {
         $where[]  = '(username LIKE ? OR email LIKE ?)';
         $params[] = "%$search%";
@@ -59,7 +60,7 @@ if ($method === 'GET') {
     );
     $listSt->execute($params);
 
-    $adminCountSt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = ?");
+    $adminCountSt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = ? AND COALESCE(is_deleted, 0) = 0");
     $adminCountSt->execute(['admin']);
     $totalAdmins  = (int) $adminCountSt->fetchColumn();
 
@@ -93,10 +94,10 @@ if ($method === 'PUT') {
     if (!in_array($role, ['student', 'instructor', 'admin'], true)) err('Invalid role');
 
     if ($role !== 'admin') {
-        $st = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+        $st = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin' AND COALESCE(is_deleted, 0) = 0");
         $st->execute();
         $adminCount = (int) $st->fetchColumn();
-        $st2 = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $st2 = $pdo->prepare("SELECT role FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0");
         $st2->execute([$id]);
         $targetRole = $st2->fetchColumn();
         if ($adminCount === 1 && $targetRole === 'admin') err('Cannot remove the last admin account.', 403);
@@ -115,15 +116,17 @@ if ($method === 'DELETE') {
 
     if ($id === currentUserId()) err('You cannot modify your own admin account.', 403);
 
-    $st = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin' AND COALESCE(is_deleted, 0) = 0");
     $st->execute();
     $adminCount = (int) $st->fetchColumn();
-    $st2 = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+    $st2 = $pdo->prepare("SELECT role FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0");
     $st2->execute([$id]);
     $targetRole = $st2->fetchColumn();
+    if (!$targetRole) err('User not found', 404);
     if ($adminCount === 1 && $targetRole === 'admin') err('Cannot remove the last admin account.', 403);
 
-    $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
+    $pdo->prepare('UPDATE users SET is_deleted = 1, is_blocked = 1 WHERE id = ?')->execute([$id]);
+    logAdminAction(currentUserId(), 'SOFT_DELETE_USER', 'user', $id, "Soft deleted user ID $id");
     appLog($pdo, 'admin_user_deleted', ['target_user_id' => $id]);
     ok(null, 'User deleted');
 }

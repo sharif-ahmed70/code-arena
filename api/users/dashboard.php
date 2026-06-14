@@ -15,7 +15,7 @@ $uid = currentUserId();
 
 $userStmt = $pdo->prepare(
     'SELECT id, username, role, hardcore_rating, learning_rating, roadmap_day, created_at
-     FROM users WHERE id = ?'
+     FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0'
 );
 $userStmt->execute([$uid]);
 $user = $userStmt->fetch();
@@ -63,7 +63,7 @@ $roadmapStmt = $pdo->prepare(
                 WHERE s.user_id = ? AND s.problem_id = p.id AND s.status = "Accepted"
             ) AS solved
      FROM problems p
-     WHERE p.is_public = 1 AND p.roadmap_day = ?
+     WHERE p.is_public = 1 AND COALESCE(p.is_deleted, 0) = 0 AND p.roadmap_day = ?
      ORDER BY p.id
      LIMIT 8'
 );
@@ -78,6 +78,7 @@ $nextRoadmapStmt = $pdo->prepare(
     'SELECT p.id, p.title, p.slug, p.difficulty, p.tags, p.roadmap_day
      FROM problems p
      WHERE p.is_public = 1
+       AND COALESCE(p.is_deleted, 0) = 0
        AND p.roadmap_day >= ?
        AND NOT EXISTS (
             SELECT 1 FROM submissions s
@@ -97,7 +98,7 @@ $savedStmt = $pdo->prepare(
             ) AS solved
      FROM problem_bookmarks pb
      JOIN problems p ON p.id = pb.problem_id
-     WHERE pb.user_id = ? AND p.is_public = 1
+     WHERE pb.user_id = ? AND p.is_public = 1 AND COALESCE(p.is_deleted, 0) = 0
      ORDER BY pb.created_at DESC
      LIMIT 6'
 );
@@ -109,7 +110,7 @@ $weakRawStmt = $pdo->prepare(
             COUNT(*) AS attempts,
             SUM(s.status != "Accepted") AS failures
      FROM submissions s
-     JOIN problems p ON p.id = s.problem_id
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      WHERE s.user_id = ?
      GROUP BY s.problem_id, p.tags'
 );
@@ -144,6 +145,7 @@ if ($weakTopic) {
         'SELECT p.id, p.title, p.slug, p.difficulty, p.tags, p.roadmap_day
          FROM problems p
          WHERE p.is_public = 1
+           AND COALESCE(p.is_deleted, 0) = 0
            AND p.tags LIKE ?
            AND NOT EXISTS (
                 SELECT 1 FROM submissions s
@@ -160,6 +162,7 @@ if (!$recommended) {
         'SELECT p.id, p.title, p.slug, p.difficulty, p.tags, p.roadmap_day
          FROM problems p
          WHERE p.is_public = 1
+           AND COALESCE(p.is_deleted, 0) = 0
            AND NOT EXISTS (
                 SELECT 1 FROM submissions s
                 WHERE s.user_id = ? AND s.problem_id = p.id AND s.status = "Accepted"
@@ -189,7 +192,7 @@ $recentStmt = $pdo->prepare(
     'SELECT s.id, s.status, s.language, s.submitted_at, s.contest_id,
             p.title AS problem_title, p.slug AS problem_slug, p.difficulty
      FROM submissions s
-     JOIN problems p ON p.id = s.problem_id
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      WHERE s.user_id = ?
      ORDER BY s.submitted_at DESC
      LIMIT 8'

@@ -7,15 +7,15 @@ require_once 'config/db.php';
 
 $loggedIn = isLoggedIn();
 
-$totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems WHERE is_public=1')->fetchColumn();
-$totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+$totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems WHERE is_public=1 AND COALESCE(is_deleted, 0) = 0')->fetchColumn();
+$totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE COALESCE(is_deleted, 0) = 0')->fetchColumn();
 $totalSubs     = (int) $pdo->query('SELECT COUNT(*) FROM submissions')->fetchColumn();
 $totalAccepted = (int) $pdo->query('SELECT COUNT(*) FROM submissions WHERE status="Accepted"')->fetchColumn();
 $acceptRate    = $totalSubs > 0 ? round($totalAccepted / $totalSubs * 100) : 0;
 
 $previewStmt = $pdo->query(
     'SELECT title, slug, difficulty, tags, total_submissions, total_accepted
-     FROM problems WHERE is_public=1
+     FROM problems WHERE is_public=1 AND COALESCE(is_deleted, 0) = 0
      ORDER BY difficulty ASC, total_submissions DESC
      LIMIT 6'
 );

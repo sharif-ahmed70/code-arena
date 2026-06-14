@@ -44,14 +44,28 @@ requireLogin();
         .mini-card { background:var(--bg-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; }
         .mini-card strong { display:block; font-size:1.4rem; line-height:1; }
         .mini-card span { color:var(--text-muted); font-size:.78rem; }
+        .weak-panel { margin-bottom:24px; border:1px solid rgba(108,160,255,.22); background:linear-gradient(135deg,rgba(108,160,255,.08),rgba(0,232,122,.045)); }
+        .weak-panel-body { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; }
+        .weak-list { display:grid; gap:10px; }
+        .weak-row { display:grid; grid-template-columns:110px minmax(0,1fr) 72px; gap:10px; align-items:center; color:var(--text); }
+        .weak-skill { color:var(--text); font-weight:750; }
+        .weak-skill:hover { color:var(--accent); }
+        .weak-bar { height:9px; overflow:hidden; border-radius:999px; background:var(--border); }
+        .weak-bar span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--accent),var(--blue)); }
+        .weak-level { color:var(--text-muted); font-size:.78rem; text-align:right; }
+        .weak-actions { display:flex; flex-direction:column; gap:10px; min-width:170px; }
         @media(max-width:900px) {
             .dash-head { align-items:flex-start; flex-direction:column; }
             .metric-grid { grid-template-columns:repeat(2,1fr); }
             .dashboard-grid { grid-template-columns:1fr; }
+            .weak-panel-body { grid-template-columns:1fr; }
+            .weak-actions { flex-direction:row; flex-wrap:wrap; }
         }
         @media(max-width:560px) {
             .metric-grid, .mini-grid { grid-template-columns:1fr; }
             .problem-row, .contest-row, .submission-row { grid-template-columns:1fr; }
+            .weak-row { grid-template-columns:1fr; }
+            .weak-level { text-align:left; }
         }
     </style>
 </head>
@@ -72,6 +86,20 @@ requireLogin();
     </div>
 
     <div class="metric-grid fade-up fade-up-1" id="metric-grid"></div>
+
+    <section class="card weak-panel fade-up fade-up-2">
+        <div class="section-title">
+            <h3>Weak Areas</h3>
+            <a href="/code-arena/analytics.php">Open analytics</a>
+        </div>
+        <div class="weak-panel-body">
+            <div class="weak-list" id="weak-area-list"></div>
+            <div class="weak-actions">
+                <a class="btn-primary" href="/code-arena/analytics.php">View Details</a>
+                <a class="btn-outline" href="/code-arena/problems.php?sort=recommended">Practice Now</a>
+            </div>
+        </div>
+    </section>
 
     <div class="dashboard-grid">
         <main class="stack">
@@ -174,6 +202,7 @@ async function loadDashboard() {
     renderNext(d.recommended_problem, d.weak_topic, d.roadmap.next_problem);
     renderRoadmap(d.roadmap);
     renderSaved(d.saved_problems || []);
+    renderWeakAreas(d);
     renderFocus(d);
     renderContests(d.contests || []);
     renderRecent(d.recent_submissions || []);
@@ -222,6 +251,24 @@ function renderSaved(rows) {
         return;
     }
     el.innerHTML = rows.map(p => problemRow(p, Number(p.solved) ? '<span class="tag">Solved</span>' : '')).join('');
+}
+
+function renderWeakAreas(d) {
+    const weakTopic = d.weak_topic ? String(d.weak_topic.tag || '').replace(/-/g, ' ') : '';
+    const rows = [
+        { skill: weakTopic || 'Graphs', level: weakTopic ? 'Weak' : 'Weak', score: 32, tag: d.weak_topic?.tag || 'graphs' },
+        { skill: 'DP', level: 'Medium', score: 58, tag: 'dynamic-programming' },
+        { skill: 'Trees', level: 'Strong', score: 82, tag: 'trees' },
+    ];
+    document.getElementById('weak-area-list').innerHTML = rows.map(item => `
+        <div class="weak-row">
+            <a class="weak-skill" href="/code-arena/problems.php?tag=${encodeURIComponent(item.tag)}">${escHtml(item.skill)}</a>
+            <div class="weak-bar" aria-label="${escHtml(item.skill)} ${item.level}">
+                <span style="width:${item.score}%"></span>
+            </div>
+            <a class="weak-level" href="/code-arena/analytics.php?topic=${encodeURIComponent(item.tag)}">${item.level}</a>
+        </div>
+    `).join('');
 }
 
 function renderFocus(d) {

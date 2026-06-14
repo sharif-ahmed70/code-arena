@@ -25,7 +25,7 @@ if ($method === 'GET') {
     if (!empty($_GET['slug'])) {
         $stmt = $pdo->prepare(
             'SELECT c.*, u.username AS author
-             FROM contests c JOIN users u ON u.id = c.created_by
+             FROM contests c JOIN users u ON u.id = c.created_by AND COALESCE(u.is_deleted, 0) = 0
              WHERE c.slug = ?'
         );
         $stmt->execute([trim($_GET['slug'])]);
@@ -36,7 +36,7 @@ if ($method === 'GET') {
         $pStmt = $pdo->prepare(
             'SELECT p.id, p.title, p.slug, p.difficulty, cp.points, cp.order_index
              FROM contest_problems cp
-             JOIN problems p ON p.id = cp.problem_id
+             JOIN problems p ON p.id = cp.problem_id AND COALESCE(p.is_deleted, 0) = 0
              WHERE cp.contest_id = ?
              ORDER BY cp.order_index'
         );
@@ -70,7 +70,7 @@ if ($method === 'GET') {
         "SELECT c.id, c.title, c.slug, c.status, c.start_time, c.end_time,
                 c.is_rated, u.username AS author,
                 (SELECT COUNT(*) FROM contest_participants cp WHERE cp.contest_id = c.id) AS participant_count
-         FROM contests c JOIN users u ON u.id = c.created_by
+         FROM contests c JOIN users u ON u.id = c.created_by AND COALESCE(u.is_deleted, 0) = 0
          $where ORDER BY c.start_time DESC LIMIT 50"
     );
     $stmt->execute($params);
@@ -138,7 +138,7 @@ if ($method === 'POST' && !$action) {
     }
     $problemIds = array_values(array_unique(array_filter($problemIds)));
     if ($problemIds) {
-        $check = $pdo->prepare('SELECT id FROM problems WHERE id = ? AND is_public = 1');
+        $check = $pdo->prepare('SELECT id FROM problems WHERE id = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0');
         $insProblem = $pdo->prepare(
             'INSERT INTO contest_problems (contest_id, problem_id, points, order_index)
              VALUES (?, ?, ?, ?)'

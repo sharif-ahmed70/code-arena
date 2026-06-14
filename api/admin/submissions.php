@@ -16,8 +16,8 @@ if (!empty($_GET['id'])) {
         'SELECT s.*, u.username, u.email,
                 p.title AS problem_title, p.slug AS problem_slug, p.difficulty
          FROM submissions s
-         JOIN users u ON u.id = s.user_id
-         JOIN problems p ON p.id = s.problem_id
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
          WHERE s.id = ?'
     );
     $stmt->execute([$id]);
@@ -112,8 +112,8 @@ $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 $count = $pdo->prepare(
     "SELECT COUNT(*)
      FROM submissions s
-     JOIN users u ON u.id = s.user_id
-     JOIN problems p ON p.id = s.problem_id
+     JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      $whereSQL"
 );
 $count->execute($params);
@@ -124,8 +124,8 @@ $stmt = $pdo->prepare(
             s.runtime_ms, s.submitted_at, s.is_practice, s.contest_id,
             u.username, p.title AS problem_title, p.slug AS problem_slug, p.difficulty
      FROM submissions s
-     JOIN users u ON u.id = s.user_id
-     JOIN problems p ON p.id = s.problem_id
+     JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+     JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
      $whereSQL
      ORDER BY s.submitted_at DESC
      LIMIT $perPage OFFSET $offset"

@@ -21,7 +21,7 @@ $tier      = (int) ($body['tier']       ?? 0);
 if (!$problemId || !in_array($tier, [1, 2, 3])) err('Invalid request');
 
 $col  = "hint_tier$tier";
-$stmt = $pdo->prepare("SELECT id, $col AS hint FROM problems WHERE id = ? AND is_public = 1");
+$stmt = $pdo->prepare("SELECT id, $col AS hint FROM problems WHERE id = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0");
 $stmt->execute([$problemId]);
 $row = $stmt->fetch();
 

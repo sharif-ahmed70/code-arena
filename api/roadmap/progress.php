@@ -15,7 +15,7 @@ if (isAdmin()) err('Admins do not have roadmap access', 403);
 $userId = currentUserId();
 
 // User's current unlocked day
-$userStmt = $pdo->prepare('SELECT roadmap_day FROM users WHERE id = ?');
+$userStmt = $pdo->prepare('SELECT roadmap_day FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
 $userStmt->execute([$userId]);
 $unlockedDay = (int) ($userStmt->fetchColumn() ?: 1);
 
@@ -30,7 +30,7 @@ $probStmt = $pdo->prepare(
             (SELECT COUNT(*) FROM submissions s
              WHERE s.user_id = ? AND s.problem_id = p.id AND s.status = "Accepted") AS solved
      FROM problems p
-     WHERE roadmap_day IS NOT NULL AND is_public = 1
+     WHERE roadmap_day IS NOT NULL AND is_public = 1 AND COALESCE(is_deleted, 0) = 0
      ORDER BY roadmap_day, id'
 );
 $probStmt->execute([$userId]);

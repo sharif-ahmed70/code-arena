@@ -30,7 +30,7 @@ $stmt = $pdo->query(
         MAX(s.submitted_at) AS last_submission_at
      FROM users u
      LEFT JOIN submissions s ON s.user_id = u.id
-     WHERE u.role <> 'admin'
+     WHERE u.role <> 'admin' AND COALESCE(u.is_deleted, 0) = 0
      GROUP BY u.id
      ORDER BY $sortSql DESC, solved_count DESC, u.username ASC
      LIMIT 100"

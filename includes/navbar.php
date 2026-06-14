@@ -10,6 +10,11 @@ $currentUserRole = currentRole();
 $currentUserId   = currentUserId();
 $avatarLetter    = $currentUser ? strtoupper($currentUser[0]) : '?';
 $currentPage     = basename($_SERVER['PHP_SELF']);
+
+function navActive(array $pages): string {
+    global $currentPage;
+    return in_array($currentPage, $pages, true) ? 'active' : '';
+}
 ?>
 
 <nav class="navbar">
@@ -20,49 +25,49 @@ $currentPage     = basename($_SERVER['PHP_SELF']);
     <div class="nav-links">
         <?php if (isLoggedIn() && !isAdmin()): ?>
         <a href="/code-arena/dashboard.php"
-           class="nav-link <?= $currentPage === 'dashboard.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['dashboard.php']) ?>">
             Dashboard
         </a>
         <a href="/code-arena/review.php"
-           class="nav-link <?= $currentPage === 'review.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['review.php']) ?>">
             Review
         </a>
         <?php endif; ?>
         <a href="/code-arena/problems.php"
-           class="nav-link <?= $currentPage === 'problems.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['problems.php', 'problem.php', 'editorial_manage.php']) ?>">
             Problems
         </a>
         <?php if (!isAdmin()): ?>
         <a href="/code-arena/roadmap.php"
-           class="nav-link <?= $currentPage === 'roadmap.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['roadmap.php']) ?>">
             Roadmap
         </a>
         <?php endif; ?>
         <a href="/code-arena/contests.php"
-           class="nav-link <?= $currentPage === 'contests.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['contests.php', 'contest.php', 'contest_manage.php']) ?>">
             Contests
         </a>
         <a href="/code-arena/leaderboard.php"
-           class="nav-link <?= $currentPage === 'leaderboard.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['leaderboard.php']) ?>">
             Leaderboard
         </a>
         <a href="/code-arena/discuss.php"
-           class="nav-link <?= in_array($currentPage, ['discuss.php','discuss_post.php','discuss_create.php']) ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['discuss.php', 'discuss_post.php', 'discuss_create.php']) ?>">
             Discuss
         </a>
         <a href="/code-arena/submissions.php"
-           class="nav-link <?= $currentPage === 'submissions.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['submissions.php']) ?>">
             Submissions
         </a>
         <?php if (isInstructor()): ?>
         <a href="/code-arena/instructor.php"
-           class="nav-link <?= $currentPage === 'instructor.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['instructor.php']) ?>">
             Instructor
         </a>
         <?php endif; ?>
         <?php if (isAdmin()): ?>
         <a href="/code-arena/admin.php"
-           class="nav-link <?= $currentPage === 'admin.php' ? 'active' : '' ?>">
+           class="nav-link <?= navActive(['admin.php']) ?>">
             Admin
         </a>
         <?php endif; ?>

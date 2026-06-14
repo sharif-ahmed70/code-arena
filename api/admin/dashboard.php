@@ -70,7 +70,9 @@ function adminRecentDays(PDO $pdo): array {
     $rows = adminFetchRows(
         $pdo,
         'SELECT DATE(submitted_at) AS date, COUNT(*) AS count
-         FROM submissions
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
          WHERE submitted_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
          GROUP BY DATE(submitted_at)
          ORDER BY date ASC'
@@ -95,30 +97,75 @@ $hasSubmissions = adminTableExists($pdo, 'submissions');
 $hasContests = adminTableExists($pdo, 'contests');
 $hasAuditLogs = adminTableExists($pdo, 'audit_logs');
 
-$totalUsers = $hasUsers ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM users') : 0;
-$totalProblems = $hasProblems ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM problems') : 0;
-$totalSubmissions = $hasSubmissions ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM submissions') : 0;
+$totalUsers = $hasUsers ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM users WHERE COALESCE(is_deleted, 0) = 0') : 0;
+$totalProblems = $hasProblems ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM problems WHERE COALESCE(is_deleted, 0) = 0') : 0;
+$totalSubmissions = ($hasUsers && $hasProblems && $hasSubmissions)
+    ? (int)adminFetchValue(
+        $pdo,
+        'SELECT COUNT(*)
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0'
+    )
+    : 0;
 $totalContests = $hasContests ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM contests') : 0;
 
 $submissionsToday = $hasSubmissions
-    ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM submissions WHERE submitted_at >= CURDATE()')
+    ? (int)adminFetchValue(
+        $pdo,
+        'SELECT COUNT(*)
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
+         WHERE s.submitted_at >= CURDATE()'
+    )
     : 0;
 $submissionsLast7Days = $hasSubmissions
-    ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM submissions WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')
+    ? (int)adminFetchValue(
+        $pdo,
+        'SELECT COUNT(*)
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
+         WHERE s.submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+    )
     : 0;
 $acceptedToday = $hasSubmissions
-    ? (int)adminFetchValue($pdo, "SELECT COUNT(*) FROM submissions WHERE status = ? AND submitted_at >= CURDATE()", ['Accepted'])
+    ? (int)adminFetchValue(
+        $pdo,
+        'SELECT COUNT(*)
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
+         WHERE s.status = ? AND s.submitted_at >= CURDATE()',
+        ['Accepted']
+    )
     : 0;
 $acceptedTotal = $hasSubmissions
-    ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM submissions WHERE status = ?', ['Accepted'])
+    ? (int)adminFetchValue(
+        $pdo,
+        'SELECT COUNT(*)
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
+         WHERE s.status = ?',
+        ['Accepted']
+    )
     : 0;
 
 $successRate = $totalSubmissions > 0 ? round(($acceptedTotal / $totalSubmissions) * 100, 2) : 0.0;
 $activeUsers7d = $hasSubmissions
-    ? (int)adminFetchValue($pdo, 'SELECT COUNT(DISTINCT user_id) FROM submissions WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')
+    ? (int)adminFetchValue(
+        $pdo,
+        'SELECT COUNT(DISTINCT s.user_id)
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
+         WHERE s.submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+    )
     : 0;
 $blockedUsers = ($hasUsers && adminColumnExists($pdo, 'users', 'is_blocked'))
-    ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM users WHERE COALESCE(is_blocked, 0) = 1')
+    ? (int)adminFetchValue($pdo, 'SELECT COUNT(*) FROM users WHERE COALESCE(is_blocked, 0) = 1 AND COALESCE(is_deleted, 0) = 0')
     : 0;
 
 $overview = [
@@ -152,7 +199,7 @@ $mostActiveUsers = ($hasUsers && $hasSubmissions)
         $pdo,
         'SELECT u.id, u.username, u.email, COUNT(s.id) AS submissions_count
          FROM submissions s
-         JOIN users u ON u.id = s.user_id
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
          GROUP BY u.id, u.username, u.email
          ORDER BY submissions_count DESC
          LIMIT 5'
@@ -164,7 +211,7 @@ $mostSolvedProblems = ($hasProblems && $hasSubmissions)
         $pdo,
         'SELECT p.id, p.title, p.slug, p.difficulty, COUNT(s.id) AS accepted_count
          FROM submissions s
-         JOIN problems p ON p.id = s.problem_id
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
          WHERE s.status = ?
          GROUP BY p.id, p.title, p.slug, p.difficulty
          ORDER BY accepted_count DESC
@@ -178,7 +225,7 @@ $mostFailedProblems = ($hasProblems && $hasSubmissions)
         $pdo,
         'SELECT p.id, p.title, p.slug, p.difficulty, COUNT(s.id) AS failed_count
          FROM submissions s
-         JOIN problems p ON p.id = s.problem_id
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
          WHERE s.status IN (?, ?)
          GROUP BY p.id, p.title, p.slug, p.difficulty
          ORDER BY failed_count DESC
@@ -197,7 +244,9 @@ $languageStats = $hasSubmissions
     ? adminFetchRows(
         $pdo,
         'SELECT COALESCE(NULLIF(language, \'\'), \'Unknown\') AS language, COUNT(*) AS count
-         FROM submissions
+         FROM submissions s
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
          GROUP BY COALESCE(NULLIF(language, \'\'), \'Unknown\')
          ORDER BY count DESC'
     )
@@ -221,8 +270,8 @@ $recentSubmissions = ($hasUsers && $hasProblems && $hasSubmissions)
         'SELECT s.id, s.status, s.language, s.submitted_at,
                 u.username, p.title AS problem_title, p.slug AS problem_slug
          FROM submissions s
-         JOIN users u ON u.id = s.user_id
-         JOIN problems p ON p.id = s.problem_id
+         JOIN users u ON u.id = s.user_id AND COALESCE(u.is_deleted, 0) = 0
+         JOIN problems p ON p.id = s.problem_id AND COALESCE(p.is_deleted, 0) = 0
          ORDER BY s.submitted_at DESC
          LIMIT 8'
     )

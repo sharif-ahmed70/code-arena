@@ -24,7 +24,7 @@ function adminUniqueSlug(PDO $pdo, string $base, ?int $excludeId = null): string
     $slug = $base ?: 'problem';
     for ($i = 0; $i < 100; $i++) {
         $candidate = $i === 0 ? $slug : "$slug-$i";
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM problems WHERE slug = ? AND id != ?');
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM problems WHERE slug = ? AND id != ? AND COALESCE(is_deleted, 0) = 0');
         $stmt->execute([$candidate, $excludeId ?? 0]);
         if ((int)$stmt->fetchColumn() === 0) return $candidate;
     }
@@ -85,7 +85,7 @@ if ($method === 'GET' && !empty($_GET['id'])) {
         'SELECT id, title, slug, difficulty, description, examples, constraints,
                 test_cases, tags, roadmap_day, hint_tier1, hint_tier2, hint_tier3,
                 time_limit_ms, memory_limit_mb, is_public, created_at
-         FROM problems WHERE id = ?'
+         FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([$id]);
     $problem = $stmt->fetch();
@@ -103,6 +103,7 @@ if ($method === 'GET') {
 
     $where = [];
     $params = [];
+    $where[] = 'COALESCE(is_deleted, 0) = 0';
     if ($search) {
         $where[] = '(title LIKE ? OR slug LIKE ? OR tags LIKE ?)';
         $params[] = "%$search%";
@@ -197,12 +198,13 @@ if ($method === 'DELETE') {
     $body = jsonBody();
     $id = (int)($body['id'] ?? 0);
     if (!$id) err('id required');
-    $titleStmt = $pdo->prepare('SELECT title FROM problems WHERE id = ?');
+    $titleStmt = $pdo->prepare('SELECT title FROM problems WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
     $titleStmt->execute([$id]);
-    $title = (string)($titleStmt->fetchColumn() ?: "ID $id");
-    $stmt = $pdo->prepare('DELETE FROM problems WHERE id = ?');
+    $title = $titleStmt->fetchColumn();
+    if (!$title) err('Problem not found', 404);
+    $stmt = $pdo->prepare('UPDATE problems SET is_deleted = 1, is_public = 0 WHERE id = ?');
     $stmt->execute([$id]);
-    logAdminAction(currentUserId(), 'DELETE_PROBLEM', 'problem', $id, 'Deleted problem: ' . $title);
+    logAdminAction(currentUserId(), 'SOFT_DELETE_PROBLEM', 'problem', $id, 'Soft deleted problem: ' . $title);
     appLog($pdo, 'admin_problem_deleted', ['problem_id' => $id]);
     ok(null, 'Problem deleted');
 }

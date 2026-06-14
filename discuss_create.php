@@ -6,7 +6,7 @@ $isAdmin = isAdmin();
 $linkedProblem = null;
 $problemId = (int)($_GET['problem_id'] ?? 0);
 if ($problemId) {
-    $stmt = $pdo->prepare('SELECT id, title, slug, difficulty, tags FROM problems WHERE id = ? AND is_public = 1');
+    $stmt = $pdo->prepare('SELECT id, title, slug, difficulty, tags FROM problems WHERE id = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0');
     $stmt->execute([$problemId]);
     $linkedProblem = $stmt->fetch() ?: null;
 }

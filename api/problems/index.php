@@ -19,7 +19,7 @@ if (!empty($_GET['slug'])) {
     $stmt = $pdo->prepare('SELECT id, title, slug, difficulty, description, examples, constraints,
                                   tags, roadmap_day, hint_tier1, hint_tier2, hint_tier3,
                                   total_submissions, total_accepted, time_limit_ms, memory_limit_mb
-                           FROM problems WHERE slug = ? AND is_public = 1');
+                           FROM problems WHERE slug = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0');
     $stmt->execute([$slug]);
     $problem = $stmt->fetch();
     if (!$problem) err('Problem not found', 404);
@@ -60,7 +60,7 @@ $page       = max(1, (int) ($_GET['page'] ?? 1));
 $perPage    = 20;
 $offset     = ($page - 1) * $perPage;
 
-$where  = ['p.is_public = 1'];
+$where  = ['p.is_public = 1', 'COALESCE(p.is_deleted, 0) = 0'];
 $params = [];
 
 if (in_array($difficulty, ['Easy', 'Medium', 'Hard'])) {
