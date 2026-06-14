@@ -3,13 +3,15 @@
 //  CODE ARENA — Admin Dashboard
 // ============================================================
 require_once 'includes/session.php';
-requireAdmin();
+require_once 'includes/adminAuthMiddleware.php';
+requireAdminPage();
 require_once 'config/db.php';
 
 $totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems')->fetchColumn();
 $totalSubs     = (int) $pdo->query('SELECT COUNT(*) FROM submissions')->fetchColumn();
 $totalContests = (int) $pdo->query('SELECT COUNT(*) FROM contests')->fetchColumn();
+$activeUsers7d = (int) $pdo->query('SELECT COUNT(DISTINCT user_id) FROM submissions WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();
 $currentAdminId = currentUserId();
 ?>
 <!DOCTYPE html>
@@ -43,6 +45,12 @@ $currentAdminId = currentUserId();
 
         .search-row { display:flex; gap:10px; margin-bottom:16px; }
         .search-row input { flex:1; }
+        .activity-list { display:flex; flex-direction:column; gap:8px; }
+        .activity-item { padding:10px 12px; background:var(--bg-card2); border:1px solid var(--border);
+                         border-radius:var(--radius-sm); font-size:.86rem; color:var(--text-dim); }
+        .activity-item span { color:var(--text-muted); font-size:.76rem; display:block; margin-top:2px; }
+        .filter-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+        .filter-row input, .filter-row select { min-width:160px; }
     </style>
 </head>
 <body>
@@ -59,7 +67,17 @@ $currentAdminId = currentUserId();
         <div class="stat-card"><div class="stat-value"><?= $totalUsers ?></div><div class="stat-label">Users</div></div>
         <div class="stat-card"><div class="stat-value"><?= $totalProblems ?></div><div class="stat-label">Problems</div></div>
         <div class="stat-card"><div class="stat-value"><?= $totalSubs ?></div><div class="stat-label">Submissions</div></div>
-        <div class="stat-card"><div class="stat-value"><?= $totalContests ?></div><div class="stat-label">Contests</div></div>
+        <div class="stat-card"><div class="stat-value"><?= $activeUsers7d ?></div><div class="stat-label">Active Users 7d</div></div>
+    </div>
+
+    <div class="card fade-up fade-up-2" style="margin-bottom:24px">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+            Recent Activity
+            <button class="btn-outline btn-sm" onclick="loadDashboard()">Refresh</button>
+        </div>
+        <div class="activity-list" id="activity-list">
+            <div class="activity-item">Loading activity...</div>
+        </div>
     </div>
 
     <div class="tabs fade-up fade-up-2">
@@ -78,7 +96,7 @@ $currentAdminId = currentUserId();
             <table>
                 <thead><tr>
                     <th>ID</th><th>Username</th><th>Email</th><th>Role</th>
-                    <th>HC Rating</th><th>LR Rating</th><th>Joined</th><th>Action</th>
+                    <th>Status</th><th>HC Rating</th><th>LR Rating</th><th>Joined</th><th>Action</th>
                 </tr></thead>
                 <tbody id="users-body">
                     <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
@@ -173,10 +191,22 @@ $currentAdminId = currentUserId();
 
     <!-- SUBMISSIONS TAB -->
     <div class="tab-pane" id="tab-submissions">
+        <div class="filter-row">
+            <input id="sub-user" class="form-input" placeholder="Filter by user/email" oninput="debounce(loadAdminSubs,350)()">
+            <input id="sub-problem" class="form-input" placeholder="Filter by problem" oninput="debounce(loadAdminSubs,350)()">
+            <select id="sub-status" class="form-input" onchange="loadAdminSubs()">
+                <option value="">All Statuses</option>
+                <option>Accepted</option>
+                <option>Wrong Answer</option>
+                <option>Runtime Error</option>
+                <option>Time Limit Exceeded</option>
+                <option>Compilation Error</option>
+            </select>
+        </div>
         <div class="table-wrap">
             <table>
                 <thead><tr>
-                    <th>#</th><th>User</th><th>Problem</th><th>Status</th><th>Language</th><th>When</th>
+                    <th>#</th><th>User</th><th>Problem</th><th>Status</th><th>Language</th><th>Runtime</th><th>When</th><th>Debug</th>
                 </tr></thead>
                 <tbody id="admin-subs-body">
                     <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
@@ -191,6 +221,26 @@ $currentAdminId = currentUserId();
 <script src="/code-arena/assets/js/main.js"></script>
 <script>
 const CURRENT_ADMIN_ID = <?= json_encode($currentAdminId) ?>;
+
+async function loadDashboard() {
+    const { ok, data } = await api('/code-arena/api/admin/dashboard.php');
+    const list = document.getElementById('activity-list');
+    if (!ok || !data.success) {
+        list.innerHTML = `<div class="activity-item" style="color:var(--red)">${data.message || 'Failed to load activity'}</div>`;
+        return;
+    }
+    const rows = data.data.recent_activity || [];
+    if (!rows.length) {
+        list.innerHTML = '<div class="activity-item">No recent audit activity yet.</div>';
+        return;
+    }
+    list.innerHTML = rows.map(a => `
+        <div class="activity-item">
+            ${escHtml(a.event)}
+            <span>${a.ip_address || 'local'} · ${timeAgo(a.created_at)}</span>
+        </div>
+    `).join('');
+}
 
 // ── Tab switching ─────────────────────────────────────────────
 function switchTab(name, btn) {
@@ -215,7 +265,7 @@ async function loadUsers(page = 1) {
 
     const { ok, data } = await api(`/code-arena/api/admin/users.php?${params}`);
     const tbody = document.getElementById('users-body');
-    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
+    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
 
     const users = data.data.users;
     const adminCount = data.data.totalAdmins;
@@ -241,16 +291,29 @@ async function loadUsers(page = 1) {
                 </select>
                 ${disableRole ? `<span style="font-size:.75rem;color:var(--text-muted);display:block;margin-top:2px">${roleTitle}</span>` : ''}
             </td>
+            <td>${Number(u.is_blocked) ? '<span style="color:var(--red)">Blocked</span>' : '<span style="color:var(--accent)">Active</span>'}</td>
             <td style="color:var(--red)">${u.hardcore_rating}</td>
             <td style="color:var(--blue)">${u.learning_rating}</td>
             <td style="font-size:.8rem;color:var(--text-muted)">${timeAgo(u.created_at)}</td>
             <td>
+                ${Number(u.is_blocked)
+                    ? `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id}, false)" ${isSelf ? 'disabled' : ''}>Unblock</button>`
+                    : `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id}, true)" ${isSelf ? 'disabled' : ''}>Block</button>`}
                 <button class="btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.username}')"
                     ${disableDel ? `disabled title="${delTitle}"` : ''}
                     ${disableDel ? 'style="opacity:.45;cursor:not-allowed"' : ''}>Delete</button>
             </td>
         </tr>`;
     }).join('');
+}
+
+async function toggleBlock(id, block) {
+    const { ok, data } = await api('/code-arena/api/admin/users.php', {
+        method: 'PUT',
+        body: JSON.stringify({ id, action: block ? 'block' : 'unblock' }),
+    });
+    toast(data.message || (ok ? 'Updated' : 'Failed'), ok ? 'success' : 'error');
+    if (ok) loadUsers(userPage);
 }
 
 async function updateRole(id, role) {
@@ -271,11 +334,11 @@ async function deleteUser(id, username) {
 
 // ── Problems ──────────────────────────────────────────────────
 async function loadAdminProblems() {
-    const { ok, data } = await api('/code-arena/api/instructor/problems.php');
+    const { ok, data } = await api('/code-arena/api/admin/problems.php');
     const tbody = document.getElementById('problems-body');
     if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
 
-    const problems = data.data;
+    const problems = data.data.problems || [];
     if (!problems.length) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px">No problems yet.</td></tr>`;
         return;
@@ -338,7 +401,7 @@ function addTestCase(inputVal = '', outputVal = '') {
 }
 
 async function editProblem(id) {
-    const { ok, data } = await api(`/code-arena/api/instructor/problems.php?id=${id}`);
+    const { ok, data } = await api(`/code-arena/api/admin/problems.php?id=${id}`);
     if (!ok || !data.success) { toast(data.message || 'Failed to load problem', 'error'); return; }
 
     const p = data.data;
@@ -404,7 +467,7 @@ async function saveProblem() {
     msg.textContent = 'Saving…';
     msg.style.color = 'var(--text-muted)';
 
-    const { ok, data } = await api('/code-arena/api/instructor/problems.php', {
+    const { ok, data } = await api('/code-arena/api/admin/problems.php', {
         method: pid ? 'PUT' : 'POST',
         body: JSON.stringify(payload),
     });
@@ -424,7 +487,7 @@ async function saveProblem() {
 
 async function deleteProblem(id, title) {
     if (!confirm(`Delete problem "${title}"?`)) return;
-    const { ok, data } = await api('/code-arena/api/instructor/problems.php', {
+    const { ok, data } = await api('/code-arena/api/admin/problems.php', {
         method: 'DELETE', body: JSON.stringify({ id }),
     });
     toast(data.message, ok ? 'success' : 'error');
@@ -433,13 +496,21 @@ async function deleteProblem(id, title) {
 
 // ── Admin submissions ─────────────────────────────────────────
 async function loadAdminSubs() {
-    const { ok, data } = await api('/code-arena/api/submissions/verdict.php?all=1&page=1');
+    const params = new URLSearchParams({ page: 1 });
+    const user = document.getElementById('sub-user')?.value.trim();
+    const problem = document.getElementById('sub-problem')?.value.trim();
+    const status = document.getElementById('sub-status')?.value;
+    if (user) params.set('user', user);
+    if (problem) params.set('problem', problem);
+    if (status) params.set('status', status);
+
+    const { ok, data } = await api(`/code-arena/api/admin/submissions.php?${params}`);
     const tbody = document.getElementById('admin-subs-body');
-    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
+    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
 
     const subs = data.data.submissions;
     if (!subs.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px">No submissions yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:40px">No submissions found.</td></tr>`;
         return;
     }
     tbody.innerHTML = subs.map(s => `
@@ -449,11 +520,19 @@ async function loadAdminSubs() {
             <td><a href="/code-arena/problem.php?slug=${s.problem_slug}">${s.problem_title}</a></td>
             <td>${statusBadge(s.status)}</td>
             <td style="font-size:.82rem">${langName(s.language)}</td>
+            <td style="font-size:.82rem;color:var(--text-muted)">${s.runtime_ms ? s.runtime_ms + 'ms' : '-'}</td>
             <td style="font-size:.82rem;color:var(--text-muted)">${timeAgo(s.submitted_at)}</td>
+            <td><a class="btn-outline btn-sm" href="/code-arena/submissions.php" title="Open submissions page">Debug</a></td>
         </tr>`).join('');
 }
 
+function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
 // Init
+loadDashboard();
 loadUsers();
 </script>
 </body>

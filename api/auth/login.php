@@ -20,13 +20,20 @@ if (!$identifier || !$password) err('All fields are required');
 enforceRateLimit($pdo, rateLimitKey('login', $identifier), 8, 15 * 60);
 
 try {
-    $stmt = $pdo->prepare('SELECT id, username, email, password, role FROM users WHERE username = ? OR email = ?');
+    $stmt = $pdo->prepare(
+        'SELECT id, username, email, password, role, COALESCE(is_blocked, 0) AS is_blocked
+         FROM users WHERE username = ? OR email = ?'
+    );
     $stmt->execute([$identifier, $identifier]);
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password'])) {
         appLog($pdo, 'login_failed', ['identifier' => $identifier]);
         err('Invalid username or password', 401);
+    }
+    if ((int)$user['is_blocked'] === 1) {
+        appLog($pdo, 'blocked_login_attempt', ['user_id' => (int)$user['id']]);
+        err('This account is blocked', 403);
     }
 
     loginUser($user);
