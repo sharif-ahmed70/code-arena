@@ -14,6 +14,16 @@ function currentOrganization(PDO $pdo): ?array {
     $userId = currentUserId();
     if (!$userId) return null;
 
+    if (isAdminOrgView()) {
+        $viewOrgId = adminViewOrgId();
+        if (!$viewOrgId) return null;
+        $stmt = $pdo->prepare('SELECT * FROM organizations WHERE id = ? LIMIT 1');
+        $stmt->execute([$viewOrgId]);
+        $org = $stmt->fetch();
+        $cached = $org ?: null;
+        return $cached;
+    }
+
     $stmt = $pdo->prepare(
         'SELECT o.*
          FROM users u

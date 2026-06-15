@@ -15,7 +15,7 @@ $currentAdmin = currentUsername() ?? 'admin';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Admin - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         body { background:var(--bg); }
         .admin-shell { min-height:100vh; display:grid; grid-template-columns:270px minmax(0,1fr); }
@@ -82,6 +82,9 @@ $currentAdmin = currentUsername() ?? 'admin';
         .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
         .bars { height:190px; display:grid; grid-template-columns:repeat(10,1fr); gap:8px; align-items:end; }
         .bar { min-height:6px; border-radius:8px 8px 3px 3px; background:linear-gradient(180deg,var(--accent),var(--blue)); }
+        .line-chart { height:190px; position:relative; border:1px solid var(--border); border-radius:var(--radius-sm); background:rgba(255,255,255,.025); overflow:hidden; }
+        .line-chart svg { width:100%; height:100%; display:block; }
+        .analytics-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
         .setting-row { display:grid; grid-template-columns:220px 1fr; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
         .setting-row:last-child { border-bottom:0; }
         @media(max-width:1200px) {
@@ -178,10 +181,14 @@ $currentAdmin = currentUsername() ?? 'admin';
 
             <section class="admin-section" id="section-analytics">
                 <div class="section-head"><div><h1>Analytics Dashboard</h1><p>Usage trends, participation trends, and role distribution.</p></div></div>
+                <div class="analytics-kpis" id="analytics-kpis"></div>
                 <div class="chart-grid">
-                    <section class="panel-card"><div class="panel-title"><h2>User Growth</h2></div><div class="bars" id="user-growth-chart"></div></section>
-                    <section class="panel-card"><div class="panel-title"><h2>Submission Trend</h2></div><div class="bars" id="submission-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>User Growth</h2></div><div class="line-chart" id="user-growth-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>Submission Trend</h2></div><div class="line-chart" id="submission-chart"></div></section>
                     <section class="panel-card"><div class="panel-title"><h2>Contest Participation</h2></div><div class="bars" id="contest-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>Acceptance by Difficulty</h2></div><div class="bars" id="difficulty-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>DAU / WAU</h2></div><div class="line-chart" id="activity-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>Average Rating Trend</h2></div><div class="line-chart" id="rating-chart"></div></section>
                     <section class="panel-card"><div class="panel-title"><h2>Role Breakdown</h2></div><div class="stack-list" id="role-breakdown"></div></section>
                 </div>
             </section>
@@ -343,15 +350,47 @@ async function loadProblems() {
 async function loadAnalytics() {
     const { ok, data } = await api('/code-arena/api/admin/analytics.php');
     if (!ok || !data.success) { toast(data.message || 'Failed to load analytics', 'error'); return; }
-    renderBars('user-growth-chart', data.data.user_growth || [], 'count');
-    renderBars('submission-chart', data.data.submission_trend || [], 'count');
+    const k = data.data.kpis || {};
+    document.getElementById('analytics-kpis').innerHTML = [
+        ['Users', k.total_users || 0],
+        ['Submissions', k.total_submissions || 0],
+        ['Acceptance', `${k.modeled_acceptance_rate || 0}%`],
+        ['DAU / WAU', `${k.latest_dau || 0} / ${k.latest_wau || 0}`],
+        ['Avg Rating', k.avg_rating || 0],
+    ].map(([label,value]) => `<div class="metric-card"><strong>${value}</strong><span>${label}</span></div>`).join('');
+    renderLine('user-growth-chart', data.data.user_growth || [], 'count');
+    renderLine('submission-chart', data.data.submission_trend || [], 'count', 'accepted');
     renderBars('contest-chart', data.data.contest_trend || [], 'participants');
+    renderBars('difficulty-chart', data.data.difficulty_performance || [], 'acceptance_rate', 'difficulty');
+    renderLine('activity-chart', data.data.activity_trend || [], 'wau', 'dau');
+    renderLine('rating-chart', data.data.rating_trend || [], 'avg_rating');
     document.getElementById('role-breakdown').innerHTML = (data.data.role_breakdown || []).map(r => `<div class="list-item"><strong>${safeText(r.role)}</strong><span>${r.count} accounts</span></div>`).join('');
 }
-function renderBars(id, rows, key) {
+function renderBars(id, rows, key, labelKey = 'day') {
     const lastRows = rows.slice(-10);
     const max = Math.max(1, ...lastRows.map(r => Number(r[key] || 0)));
-    document.getElementById(id).innerHTML = lastRows.length ? lastRows.map(r => `<div class="bar" title="${safeText(r.day)}: ${r[key] || 0}" style="height:${Math.max(6, Math.round(Number(r[key] || 0) / max * 100))}%"></div>`).join('') : '<div style="color:var(--text-muted)">No data yet.</div>';
+    document.getElementById(id).innerHTML = lastRows.length ? lastRows.map(r => `<div class="bar" title="${safeText(r[labelKey] || r.day)}: ${r[key] || 0}" style="height:${Math.max(6, Math.round(Number(r[key] || 0) / max * 100))}%"></div>`).join('') : '<div style="color:var(--text-muted)">No data yet.</div>';
+}
+function renderLine(id, rows, key, secondaryKey = null) {
+    const el = document.getElementById(id);
+    const points = rows.slice(-30);
+    if (!points.length) { el.innerHTML = '<div style="padding:18px;color:var(--text-muted)">No data yet.</div>'; return; }
+    const keys = secondaryKey ? [key, secondaryKey] : [key];
+    const values = points.flatMap(row => keys.map(k => Number(row[k] || 0)));
+    const min = Math.min(...values);
+    const max = Math.max(...values, min + 1);
+    const w = 640, h = 190, pad = 18;
+    const pathFor = chartKey => points.map((row, i) => {
+        const x = pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
+        const y = h - pad - ((Number(row[chartKey] || 0) - min) / (max - min)) * (h - pad * 2);
+        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const title = `${safeText(points[0].day)} → ${safeText(points[points.length - 1].day)}`;
+    el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${title}">
+        <defs><linearGradient id="lineGrad-${id}" x1="0" x2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+        <path d="${pathFor(key)}" fill="none" stroke="url(#lineGrad-${id})" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        ${secondaryKey ? `<path d="${pathFor(secondaryKey)}" fill="none" stroke="rgba(167,139,250,.62)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    </svg>`;
 }
 
 async function loadSubmissions() {

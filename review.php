@@ -11,7 +11,7 @@ requireLogin();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .review-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; margin-bottom:28px; }
         .review-head p { color:var(--text-muted); margin-top:6px; }

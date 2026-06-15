@@ -6,7 +6,7 @@ $organization = requireOrganizationPage($pdo);
 $pageTitle = 'Analytics';
 $activeOrgPage = 'analytics';
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Analytics - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css"><style>.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:18px}.metric-card strong{display:block;font-size:1.8rem}.bar{height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:var(--accent)}</style></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Analytics - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2"><style>.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:18px}.metric-card strong{display:block;font-size:1.8rem}.bar{height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:var(--accent)}</style></head><body>
 <?php require_once '../includes/organization_shell.php'; ?>
 <div class="org-content">
     <div id="summary" class="metric-grid"></div>

@@ -17,7 +17,7 @@ function navActive(array $pages): string {
 }
 ?>
 
-<nav class="navbar">
+<nav class="navbar ca-navbar">
     <a href="/code-arena/index.php" class="nav-logo">
         Code<span>Arena</span>
     </a>
@@ -87,8 +87,8 @@ function navActive(array $pages): string {
             </a>
             <a href="/code-arena/api/auth/logout.php" class="nav-logout">Logout</a>
         <?php else: ?>
-            <a href="/code-arena/login.php" class="btn-outline">Login</a>
-            <a href="/code-arena/register.php" class="btn-primary">Register</a>
+            <a href="/code-arena/login.php" class="btn-outline ca-btn ca-btn-outline">Login</a>
+            <a href="/code-arena/register.php" class="btn-primary ca-btn ca-btn-primary">Register</a>
         <?php endif; ?>
     </div>
 </nav>

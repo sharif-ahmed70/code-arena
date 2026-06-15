@@ -6,7 +6,7 @@ $organization = requireOrganizationPage($pdo);
 $pageTitle = 'Settings';
 $activeOrgPage = 'settings';
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Organization Settings - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css"></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Organization Settings - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2"></head><body>
 <?php require_once '../includes/organization_shell.php'; ?>
 <div class="org-content">
     <section class="org-card" style="max-width:760px">

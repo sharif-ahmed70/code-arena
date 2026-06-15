@@ -6,7 +6,7 @@ $organization = requireOrganizationPage($pdo);
 $pageTitle = 'Announcements';
 $activeOrgPage = 'announcements';
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Announcements - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css"></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Announcements - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2"></head><body>
 <?php require_once '../includes/organization_shell.php'; ?>
 <div class="org-content" style="display:grid;grid-template-columns:minmax(280px,420px) minmax(0,1fr);gap:18px">
     <section class="org-card">

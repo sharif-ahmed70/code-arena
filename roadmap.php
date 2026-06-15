@@ -12,7 +12,7 @@ if (isAdmin()) { header('Location: /code-arena/admin.php'); exit; }
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Roadmap — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .roadmap-grid {
             display: grid;

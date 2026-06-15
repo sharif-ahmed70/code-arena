@@ -36,3 +36,18 @@ function enforceRateLimit(PDO $pdo, string $key, int $maxAttempts, int $windowSe
         err('Temporary service protection error. Try again shortly.', 503);
     }
 }
+
+function clearRateLimit(PDO $pdo, string $key): void {
+    try {
+        $stmt = $pdo->prepare('DELETE FROM rate_limits WHERE rate_key = ?');
+        $stmt->execute([$key]);
+    } catch (PDOException $e) {
+        error_log('rate limit reset failed: ' . $e->getMessage());
+    }
+}
+
+function clearRateLimits(PDO $pdo, array $keys): void {
+    foreach (array_unique(array_filter($keys)) as $key) {
+        clearRateLimit($pdo, $key);
+    }
+}

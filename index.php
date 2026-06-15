@@ -1,533 +1,660 @@
 <?php
-// ============================================================
-//  CODE ARENA — Landing Page
-// ============================================================
 require_once 'includes/session.php';
-require_once 'config/db.php';
-
 $loggedIn = isLoggedIn();
-
-$totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems WHERE is_public=1 AND COALESCE(is_deleted, 0) = 0')->fetchColumn();
-$totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE COALESCE(is_deleted, 0) = 0')->fetchColumn();
-$totalSubs     = (int) $pdo->query('SELECT COUNT(*) FROM submissions')->fetchColumn();
-$totalAccepted = (int) $pdo->query('SELECT COUNT(*) FROM submissions WHERE status="Accepted"')->fetchColumn();
-$acceptRate    = $totalSubs > 0 ? round($totalAccepted / $totalSubs * 100) : 0;
-
-$previewStmt = $pdo->query(
-    'SELECT title, slug, difficulty, tags, total_submissions, total_accepted
-     FROM problems WHERE is_public=1 AND COALESCE(is_deleted, 0) = 0
-     ORDER BY difficulty ASC, total_submissions DESC
-     LIMIT 6'
-);
-$previewProblems = $previewStmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code Arena — Compete. Learn. Improve.</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <title>CodeArena</title>
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
-    /* ── Fix: descender clipping on all headings ──────────── */
-    h1, h2, h3, h4 {
-        line-height: 1.25;
-        overflow: visible;
-        padding-bottom: 0.05em; /* ensures g/y/p aren't clipped */
-    }
+        :root {
+            --bg: #080b14;
+            --panel: #101522;
+            --panel-2: #121827;
+            --line: rgba(151, 116, 255, .25);
+            --line-soft: rgba(255, 255, 255, .1);
+            --text: #f4f2fb;
+            --muted: #9ea6bd;
+            --muted-2: #747d96;
+            --purple: #8e4dff;
+            --purple-2: #b060ff;
+            --violet: #6f35ff;
+            --gold: #c88b16;
+            --green: #57d680;
+            --radius: 10px;
+            --shadow: 0 18px 60px rgba(103, 39, 255, .22);
+        }
 
-    /* ── Gradient text helper — needs padding-bottom for descenders */
-    .grad-text {
-        background: linear-gradient(90deg, var(--accent) 0%, var(--blue) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        display: inline-block; /* required: inline-block clips to content box */
-        padding-bottom: 0.1em;
-        line-height: 1.25;
-    }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 72% 19%, rgba(143, 47, 255, .24), transparent 18%),
+                radial-gradient(circle at 58% 22%, rgba(97, 48, 255, .14), transparent 22%),
+                linear-gradient(180deg, #080b14 0%, #090d16 48%, #080b14 100%);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+            border: 3px solid rgba(179, 114, 255, .72);
+        }
 
-    /* ── Navbar ───────────────────────────────────────────── */
-    .lp-nav {
-        position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 40px; height: 64px;
-        background: rgba(10,10,15,.9);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid var(--border);
-    }
-    .lp-nav-logo {
-        font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 1.25rem;
-        color: var(--text); letter-spacing: -.01em;
-    }
-    .lp-nav-logo span { color: var(--accent); }
-    .lp-nav-links { display: flex; gap: 4px; }
-    .lp-nav-links a {
-        padding: 6px 14px; border-radius: var(--radius-sm);
-        font-size: .88rem; color: var(--text-muted);
-        transition: color .15s, background .15s;
-    }
-    .lp-nav-links a:hover { color: var(--text); background: var(--bg-card); }
-    .lp-nav-actions { display: flex; gap: 10px; }
+        a { color: inherit; text-decoration: none; }
+        button, input { font: inherit; }
 
-    /* ── Page wrapper ─────────────────────────────────────── */
-    .lp-page { padding-top: 64px; }
+        .topbar {
+            height: 76px;
+            border-bottom: 1px solid var(--line-soft);
+            background: rgba(7, 10, 18, .84);
+            backdrop-filter: blur(18px);
+        }
+        .nav {
+            width: min(1120px, calc(100% - 42px));
+            height: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 210px 1fr 210px;
+            align-items: center;
+            gap: 18px;
+        }
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 17px;
+            font-weight: 800;
+        }
+        .brand-mark {
+            width: 29px;
+            height: 29px;
+            position: relative;
+            display: grid;
+            place-items: center;
+            border: 2px solid rgba(180, 117, 255, .76);
+            border-radius: 9px;
+            transform: rotate(45deg);
+            box-shadow: 0 0 18px rgba(146, 69, 255, .36);
+        }
+        .brand-mark::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-top: 2px solid #d5bcff;
+            border-left: 2px solid #d5bcff;
+        }
+        .brand span:last-child { color: var(--purple-2); }
 
-    /* ── Hero ─────────────────────────────────────────────── */
-    .hero {
-        text-align: center;
-        padding: 96px 24px 80px;
-        max-width: 760px;
-        margin: 0 auto;
-    }
-    .hero h1 {
-        font-family: 'DM Sans', sans-serif;
-        font-weight: 600;
-        font-size: clamp(2.4rem, 5vw, 3.6rem);
-        letter-spacing: -.01em;
-        line-height: 1.25;
-        overflow: visible;
-        margin-bottom: 20px;
-    }
-    .hero p {
-        font-size: 1.05rem;
-        color: var(--text-muted);
-        line-height: 1.75;
-        max-width: 520px;
-        margin: 0 auto 36px;
-    }
-    .hero-cta {
-        display: flex; gap: 12px;
-        justify-content: center; flex-wrap: wrap;
-    }
-    .hero-cta .btn-primary { padding: 12px 28px; font-size: .95rem; }
-    .hero-cta .btn-outline  { padding: 12px 28px; font-size: .95rem; }
+        .nav-links {
+            justify-self: center;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            gap: 31px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .nav-links a {
+            height: 100%;
+            display: inline-flex;
+            align-items: center;
+            color: #f0eef8;
+            opacity: .92;
+            position: relative;
+        }
+        .nav-links a.active { color: var(--purple-2); }
+        .nav-links a.active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 3px;
+            border-radius: 10px 10px 0 0;
+            background: linear-gradient(90deg, var(--purple), var(--purple-2));
+        }
+        .nav-actions {
+            justify-self: end;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            min-width: 82px;
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 7px;
+            border: 1px solid rgba(255, 255, 255, .16);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+            cursor: pointer;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-ghost { background: #0b101c; color: #dad7e8; }
+        .btn-purple {
+            background: linear-gradient(135deg, #7b35ff, #b24dff);
+            border-color: rgba(205, 137, 255, .55);
+            box-shadow: 0 10px 26px rgba(125, 54, 255, .34);
+        }
+        .btn-outline { background: transparent; color: #f5f1ff; border-color: rgba(122, 125, 157, .75); }
 
-    /* ── Stats ────────────────────────────────────────────── */
-    .stats-bar {
-        border-top: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
-        background: var(--bg-card);
-        padding: 40px 24px;
-    }
-    .stats-bar-inner {
-        max-width: 800px; margin: 0 auto;
-        display: grid; grid-template-columns: repeat(4, 1fr);
-        gap: 24px; text-align: center;
-    }
-    @media (max-width: 600px) {
-        .stats-bar-inner { grid-template-columns: repeat(2, 1fr); }
-    }
-    .stat-item-num {
-        font-family: 'DM Sans', sans-serif;
-        font-size: 2rem; font-weight: 600;
-        color: var(--accent); line-height: 1.25;
-        overflow: visible;
-    }
-    .stat-item-lbl {
-        font-size: .78rem; font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase; letter-spacing: .07em;
-        margin-top: 4px;
-    }
+        .container { width: min(1120px, calc(100% - 42px)); margin: 0 auto; }
 
-    /* ── Section wrapper ──────────────────────────────────── */
-    .lp-section {
-        max-width: 1080px; margin: 0 auto;
-        padding: 80px 24px;
-    }
-    .lp-section-header {
-        margin-bottom: 48px;
-    }
-    .lp-section-header .eyebrow {
-        font-size: .72rem; font-weight: 700; letter-spacing: .12em;
-        text-transform: uppercase; color: var(--accent);
-        margin-bottom: 10px;
-    }
-    .lp-section-header h2 {
-        font-family: 'DM Sans', sans-serif; font-weight: 600;
-        font-size: clamp(1.6rem, 3vw, 2.2rem);
-        line-height: 1.25; overflow: visible;
-        letter-spacing: -.01em; margin-bottom: 10px;
-    }
-    .lp-section-header p {
-        color: var(--text-muted); font-size: .95rem;
-        line-height: 1.7; max-width: 500px;
-    }
+        .hero {
+            min-height: 500px;
+            display: grid;
+            grid-template-columns: 1fr 535px;
+            align-items: center;
+            gap: 86px;
+            padding: 48px 0 44px;
+        }
+        .hero-copy { padding-top: 16px; }
+        .hero h1 {
+            margin: 0;
+            max-width: 470px;
+            font-size: clamp(42px, 4.3vw, 58px);
+            line-height: 1.08;
+            letter-spacing: -.035em;
+            font-weight: 850;
+        }
+        .hero h1 .grad {
+            display: inline-block;
+            background: linear-gradient(90deg, #884dff 2%, #d9bdff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            padding-bottom: 4px;
+        }
+        .hero p {
+            width: 385px;
+            margin: 30px 0 34px;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.75;
+            font-weight: 500;
+        }
+        .hero-buttons { display: flex; gap: 16px; }
+        .hero-buttons .btn { min-width: 126px; min-height: 43px; }
 
-    /* ── Feature grid ─────────────────────────────────────── */
-    .feat-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-    }
-    @media (max-width: 860px) { .feat-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 540px) { .feat-grid { grid-template-columns: 1fr; } }
+        .code-window {
+            min-height: 344px;
+            border: 1px solid rgba(157, 85, 255, .58);
+            border-radius: 13px;
+            background:
+                radial-gradient(circle at 74% 40%, rgba(106, 59, 255, .2), transparent 42%),
+                linear-gradient(135deg, rgba(19, 24, 38, .98), rgba(9, 13, 24, .98));
+            box-shadow: 0 0 0 1px rgba(107, 56, 255, .12), 0 32px 90px rgba(122, 36, 255, .36);
+            overflow: hidden;
+        }
+        .code-head {
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px 0 20px;
+            color: #bfc6db;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .dots { display: flex; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .red { background: #ff5e57; }
+        .yellow { background: #ffbd2e; }
+        .green { background: #28c840; }
+        pre {
+            margin: 0;
+            padding: 0 28px 22px;
+            color: #bfcae9;
+            font: 14px/1.72 "JetBrains Mono", Consolas, monospace;
+            white-space: pre-wrap;
+        }
+        .kw { color: #d16dff; }
+        .type { color: #cfa0ff; }
+        .fn { color: #89c9ff; }
+        .str { color: #69df91; }
+        .num { color: #ff88c8; }
 
-    .feat-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 28px;
-        transition: border-color .2s;
-    }
-    .feat-card:hover { border-color: rgba(0,255,136,.2); }
-    .feat-icon {
-        font-size: 1.5rem; margin-bottom: 14px;
-        width: 44px; height: 44px; border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        background: var(--bg-card2); border: 1px solid var(--border);
-    }
-    .feat-card h3 {
-        font-size: .95rem; font-weight: 700;
-        line-height: 1.3; overflow: visible;
-        margin-bottom: 8px;
-    }
-    .feat-card p { font-size: .87rem; color: var(--text-muted); line-height: 1.7; }
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(4, max-content);
+            gap: 38px;
+            margin-top: 60px;
+        }
+        .stat {
+            display: grid;
+            grid-template-columns: 40px auto;
+            align-items: center;
+            gap: 12px;
+        }
+        .icon {
+            width: 39px;
+            height: 39px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            border: 2px solid rgba(147, 62, 255, .78);
+            color: #ba7cff;
+            background: rgba(105, 45, 194, .13);
+            box-shadow: 0 0 18px rgba(139, 57, 255, .28);
+            font-size: 20px;
+            line-height: 1;
+        }
+        .stat strong { display: block; font-size: 18px; line-height: 1; }
+        .stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 
-    /* Roadmap day grid */
-    .day-grid { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 14px; }
-    .day-pip {
-        width: 26px; height: 26px; border-radius: 6px;
-        display: flex; align-items: center; justify-content: center;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: .65rem; font-weight: 700;
-    }
-    .dp-done   { background: rgba(0,255,136,.12); color: var(--accent); border: 1px solid rgba(0,255,136,.2); }
-    .dp-active { background: rgba(0,255,136,.2);  color: var(--accent); border: 1px solid var(--accent); }
-    .dp-locked { background: var(--bg-card2); color: var(--text-muted); border: 1px solid var(--border); }
+        .divider { border-top: 1px solid var(--line-soft); }
+        .section { padding: 24px 0 0; }
+        .section-title { text-align: center; margin: 0 0 21px; }
+        .section-title h2 {
+            margin: 0;
+            font-size: 30px;
+            line-height: 1.2;
+            letter-spacing: -.03em;
+        }
+        .section-title h2 span { color: var(--purple-2); }
+        .section-title p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
 
-    /* Hint tiers */
-    .hint-list { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
-    .hint-row {
-        display: flex; align-items: center; gap: 8px;
-        font-size: .82rem; padding: 8px 12px;
-        border-radius: var(--radius-sm);
-    }
-    .hr-1 { background: rgba(255,209,102,.06); border: 1px solid rgba(255,209,102,.15); color: var(--yellow); }
-    .hr-2 { background: rgba(255,163,77,.05);  border: 1px solid rgba(255,163,77,.12);  color: #c97c27; }
-    .hr-3 { background: rgba(255,79,79,.05);   border: 1px solid rgba(255,79,79,.12);   color: var(--red); }
-    .hint-row span:last-child { margin-left: auto; font-size: .75rem; opacity: .7; }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 24px;
+            margin-top: 26px;
+        }
+        .feature-card {
+            min-height: 164px;
+            padding: 21px 20px 18px;
+            text-align: center;
+            border: 1px solid rgba(123, 132, 163, .28);
+            border-radius: 9px;
+            background: linear-gradient(180deg, rgba(22, 27, 43, .92), rgba(15, 19, 32, .92));
+            transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
+        }
+        .feature-card:hover,
+        .contest-card:hover,
+        .category-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(162, 75, 255, .8);
+            box-shadow: var(--shadow);
+        }
+        .feature-card .icon { margin: 0 auto 16px; width: 45px; height: 45px; }
+        .feature-card h3 { margin: 0 0 11px; font-size: 16px; }
+        .feature-card p {
+            margin: 0 auto;
+            color: #b0b8cd;
+            font-size: 12.5px;
+            line-height: 1.55;
+            max-width: 150px;
+        }
 
-    /* Rating bars */
-    .rating-row { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-    .rr-item { display: flex; flex-direction: column; gap: 4px; }
-    .rr-label { display: flex; justify-content: space-between; font-size: .8rem; }
-    .rr-bar   { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-    .rr-fill  { height: 100%; border-radius: 3px; }
-    .rr-hc    { width: 62%; background: var(--red); }
-    .rr-lr    { width: 74%; background: var(--blue); }
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 23px 0 14px;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            padding-top: 21px;
+        }
+        .section-head.no-line { border-top: 0; padding-top: 0; margin-top: 29px; }
+        .section-head h2 { margin: 0; font-size: 21px; letter-spacing: -.02em; }
+        .text-link { color: #b576ff; font-size: 13px; font-weight: 800; }
 
-    /* ── Problem preview ──────────────────────────────────── */
-    .prob-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 14px;
-    }
-    @media (max-width: 860px) { .prob-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 540px) { .prob-grid { grid-template-columns: 1fr; } }
+        .contests {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 22px;
+        }
+        .contest-card {
+            min-height: 158px;
+            position: relative;
+            padding: 18px 18px 14px;
+            border-radius: 9px;
+            border: 1px solid rgba(151, 66, 255, .88);
+            background: linear-gradient(180deg, rgba(20, 25, 41, .96), rgba(12, 17, 30, .96));
+            box-shadow: 0 15px 35px rgba(101, 44, 220, .12);
+            transition: transform .3s ease, box-shadow .3s ease;
+        }
+        .contest-card h3 { margin: 0 88px 7px 0; font-size: 17px; letter-spacing: -.015em; }
+        .pill {
+            position: absolute;
+            top: 15px;
+            right: 17px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(172, 116, 12, .56);
+            color: #ffd375;
+            font-size: 10px;
+            font-weight: 900;
+        }
+        .date {
+            color: #8791aa;
+            font-size: 11px;
+            font-weight: 650;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .contest-card p { min-height: 42px; color: #bac1d5; font-size: 12.5px; line-height: 1.55; margin: 14px 0 14px; }
+        .contest-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .participants { color: #c7cde0; font-size: 11px; font-weight: 700; }
+        .register {
+            min-width: 104px;
+            min-height: 34px;
+            border-radius: 7px;
+            border: 0;
+            color: #fff;
+            font-weight: 900;
+            font-size: 11px;
+            background: linear-gradient(135deg, #8339ff, #b44dff);
+            box-shadow: 0 10px 24px rgba(130, 55, 255, .35);
+        }
 
-    .prob-card {
-        background: var(--bg-card); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: 20px;
-        display: flex; flex-direction: column; gap: 10px;
-        transition: border-color .2s;
-    }
-    .prob-card:hover { border-color: rgba(255,255,255,.15); }
-    .prob-card-title { font-weight: 600; font-size: .9rem; line-height: 1.35; overflow: visible; }
-    .prob-card-title a { color: var(--text); }
-    .prob-card-title a:hover { color: var(--accent); }
-    .prob-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .prob-card-tags { display: flex; gap: 5px; flex-wrap: wrap; }
-    .prob-card-tag {
-        font-size: .7rem; padding: 2px 7px;
-        border-radius: 4px; background: var(--bg-card2);
-        color: var(--text-muted); border: 1px solid var(--border);
-    }
-    .prob-card-meta { font-size: .78rem; color: var(--text-muted); }
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px;
+        }
+        .category-card {
+            min-height: 76px;
+            display: grid;
+            grid-template-columns: 43px auto;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(123, 132, 163, .28);
+            background: linear-gradient(180deg, rgba(22, 27, 43, .92), rgba(14, 19, 32, .92));
+            transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
+        }
+        .category-card .icon { width: 39px; height: 39px; }
+        .category-card strong { display: block; font-size: 12.5px; }
+        .category-card span { color: var(--muted); font-size: 11px; }
 
-    /* ── CTA ──────────────────────────────────────────────── */
-    .cta-section {
-        background: var(--bg-card);
-        border-top: 1px solid var(--border);
-        text-align: center;
-        padding: 80px 24px;
-    }
-    .cta-section h2 {
-        font-family: 'DM Sans', sans-serif; font-weight: 600;
-        font-size: clamp(1.8rem, 3.5vw, 2.6rem);
-        line-height: 1.25; overflow: visible;
-        letter-spacing: -.01em; margin-bottom: 14px;
-    }
-    .cta-section p { color: var(--text-muted); font-size: .95rem; line-height: 1.7; margin-bottom: 32px; }
-    .cta-pills {
-        display: flex; gap: 8px; justify-content: center;
-        flex-wrap: wrap; margin-bottom: 32px;
-    }
-    .cta-pill {
-        font-size: .78rem; padding: 5px 12px;
-        border-radius: 100px;
-        background: var(--bg-card2); color: var(--text-muted);
-        border: 1px solid var(--border);
-    }
-    .cta-section .btn-primary { padding: 13px 32px; font-size: .95rem; }
+        .cta {
+            margin: 29px 0 22px;
+            min-height: 134px;
+            display: grid;
+            grid-template-columns: 310px 1fr;
+            align-items: center;
+            border-radius: 10px;
+            border: 2px solid rgba(172, 69, 255, .92);
+            background:
+                radial-gradient(circle at 13% 54%, rgba(70, 53, 255, .62), transparent 16%),
+                linear-gradient(90deg, rgba(18, 22, 36, .98), rgba(13, 16, 28, .98));
+            overflow: hidden;
+        }
+        .cta-art {
+            height: 134px;
+            position: relative;
+            background: radial-gradient(circle at 42% 58%, rgba(98, 55, 255, .5), transparent 45%);
+        }
+        .person {
+            position: absolute;
+            bottom: 18px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #c9c9ff;
+            box-shadow: 0 0 26px rgba(112, 85, 255, .75);
+        }
+        .person::after {
+            content: "";
+            position: absolute;
+            left: -18px;
+            top: 44px;
+            width: 88px;
+            height: 56px;
+            border-radius: 26px 26px 8px 8px;
+            background: linear-gradient(135deg, #643cff, #151a33);
+        }
+        .p1 { left: 86px; }
+        .p2 { left: 188px; transform: scale(.82); opacity: .9; }
+        .screen {
+            position: absolute;
+            bottom: 20px;
+            left: 126px;
+            width: 78px;
+            height: 47px;
+            border-radius: 6px;
+            background: #10182d;
+            border: 1px solid rgba(136, 96, 255, .8);
+            box-shadow: 0 0 20px rgba(119, 68, 255, .55);
+        }
+        .cta-copy { padding: 0 28px; }
+        .cta h2 { margin: 0 0 9px; font-size: 29px; letter-spacing: -.03em; }
+        .cta p { margin: 0 0 20px; color: #c2c8d9; font-size: 13px; }
+        .cta .btn { width: 151px; min-height: 38px; }
 
-    /* ── Footer ───────────────────────────────────────────── */
-    .lp-footer {
-        padding: 28px 40px;
-        border-top: 1px solid var(--border);
-        display: flex; align-items: center;
-        justify-content: space-between; flex-wrap: wrap; gap: 12px;
-        font-size: .82rem; color: var(--text-muted);
-    }
-    .lp-footer a { color: var(--text-muted); }
-    .lp-footer a:hover { color: var(--text); }
-    .lp-footer-links { display: flex; gap: 20px; }
+        .footer-wrap {
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            padding-top: 20px;
+        }
+        .footer {
+            display: grid;
+            grid-template-columns: 250px repeat(4, 1fr);
+            gap: 46px;
+            padding: 0 12px 20px;
+        }
+        .footer .brand { margin-bottom: 14px; }
+        .footer p { color: var(--muted); font-size: 12px; line-height: 1.65; margin: 0 0 14px; }
+        .socials { display: flex; gap: 10px; }
+        .social {
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            background: #161c2b;
+            color: #bbc2d5;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .foot-col h3 { margin: 0 0 13px; font-size: 13px; }
+        .foot-col a {
+            display: block;
+            margin: 0 0 7px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .copyright {
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            color: var(--muted);
+            text-align: center;
+            font-size: 12px;
+            padding: 16px 0 20px;
+        }
+
+        @media (max-width: 980px) {
+            .nav { grid-template-columns: 1fr auto; }
+            .nav-links { display: none; }
+            .hero { grid-template-columns: 1fr; gap: 34px; padding-top: 40px; }
+            .hero p { width: auto; max-width: 450px; }
+            .stat-row { grid-template-columns: repeat(2, max-content); }
+            .features { grid-template-columns: repeat(2, 1fr); }
+            .contests { grid-template-columns: 1fr; }
+            .categories { grid-template-columns: repeat(2, 1fr); }
+            .cta { grid-template-columns: 1fr; }
+            .cta-art { display: none; }
+            .cta-copy { padding: 28px; }
+            .footer { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 620px) {
+            body { border-width: 2px; }
+            .topbar { height: auto; padding: 14px 0; }
+            .nav { grid-template-columns: 1fr; justify-items: start; }
+            .nav-actions { justify-self: start; }
+            .hero h1 { font-size: 42px; }
+            .hero-buttons, .nav-actions { flex-wrap: wrap; }
+            .stat-row { grid-template-columns: 1fr; gap: 18px; }
+            .features, .categories, .footer { grid-template-columns: 1fr; }
+            .code-window { min-height: 0; }
+            pre { font-size: 11px; padding: 0 16px 18px; }
+        }
     </style>
 </head>
 <body>
-
-<!-- ── Navbar ─────────────────────────────────────────────── -->
-<nav class="lp-nav">
-    <a href="/code-arena/index.php" class="lp-nav-logo">Code<span>Arena</span></a>
-
-    <div class="lp-nav-links">
-        <a href="/code-arena/problems.php">Problems</a>
-        <a href="/code-arena/roadmap.php">Roadmap</a>
-        <a href="/code-arena/contests.php">Contests</a>
-    </div>
-
-    <div class="lp-nav-actions">
-        <?php if ($loggedIn): ?>
-            <a href="/code-arena/problems.php" class="btn-primary">Go to Problems</a>
-        <?php else: ?>
-            <a href="/code-arena/login.php"    class="btn-outline">Login</a>
-            <a href="/code-arena/register.php" class="btn-primary">Register Free</a>
-        <?php endif; ?>
-    </div>
-</nav>
-
-<div class="lp-page">
-
-    <!-- ── Hero ───────────────────────────────────────────── -->
-    <section class="hero">
-        <h1>
-            Master Algorithms.<br>
-            <span class="grad-text">Compete. Grow.</span>
-        </h1>
-        <p>
-            Solve handcrafted problems, follow a 30-day roadmap, compete in rated
-            contests, and track your progress with dual ratings — Hardcore and Learning.
-        </p>
-        <div class="hero-cta">
-            <?php if ($loggedIn): ?>
-                <a href="/code-arena/problems.php" class="btn-primary">Continue Solving →</a>
-                <a href="/code-arena/roadmap.php"  class="btn-outline">View Roadmap</a>
-            <?php else: ?>
-                <a href="/code-arena/register.php" class="btn-primary">Start for Free →</a>
-                <a href="/code-arena/problems.php" class="btn-outline">Browse Problems</a>
-            <?php endif; ?>
-        </div>
-    </section>
-
-    <!-- ── Stats ──────────────────────────────────────────── -->
-    <div class="stats-bar">
-        <div class="stats-bar-inner">
-            <div>
-                <div class="stat-item-num"><?= number_format($totalProblems) ?></div>
-                <div class="stat-item-lbl">Problems</div>
-            </div>
-            <div>
-                <div class="stat-item-num"><?= number_format($totalUsers) ?></div>
-                <div class="stat-item-lbl">Developers</div>
-            </div>
-            <div>
-                <div class="stat-item-num"><?= number_format($totalSubs) ?></div>
-                <div class="stat-item-lbl">Submissions</div>
-            </div>
-            <div>
-                <div class="stat-item-num"><?= $acceptRate ?>%</div>
-                <div class="stat-item-lbl">Acceptance</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ── Features ───────────────────────────────────────── -->
-    <div class="lp-section">
-        <div class="lp-section-header">
-            <p class="eyebrow">Why Code Arena</p>
-            <h2>Everything you need to level up.</h2>
-            <p>A complete competitive programming environment — structured learning, real judging, and meaningful ratings.</p>
-        </div>
-
-        <div class="feat-grid">
-
-            <!-- 30-day roadmap -->
-            <div class="feat-card">
-                <div class="feat-icon">🗺️</div>
-                <h3>30-Day Sequential Roadmap</h3>
-                <p>Each day unlocks only after you solve the previous day's problems. Build real algorithmic intuition day by day.</p>
-                <div class="day-grid">
-                    <?php
-                    $states = ['dp-done','dp-done','dp-done','dp-done','dp-active',
-                               'dp-locked','dp-locked','dp-locked','dp-locked','dp-locked'];
-                    for ($d = 1; $d <= 10; $d++):
-                    ?>
-                    <div class="day-pip <?= $states[$d-1] ?>"><?= $d ?></div>
-                    <?php endfor; ?>
-                    <div class="day-pip dp-locked" style="width:auto;padding:0 6px;font-size:.6rem">+20</div>
-                </div>
-            </div>
-
-            <!-- 3-tier hints -->
-            <div class="feat-card">
-                <div class="feat-icon">💡</div>
-                <h3>3-Tier Progressive Hints</h3>
-                <p>Never fully stuck. Unlock hints one tier at a time — each tier costs a fraction of your Learning rating gain.</p>
-                <div class="hint-list">
-                    <div class="hint-row hr-1">💡 Tier 1 — Approach hint<span>−25% LR</span></div>
-                    <div class="hint-row hr-2">🔒 Tier 2 — Algorithm hint<span>−50% LR</span></div>
-                    <div class="hint-row hr-3">🔒 Tier 3 — Key insight<span>−75% LR</span></div>
-                </div>
-            </div>
-
-            <!-- Dual rating -->
-            <div class="feat-card">
-                <div class="feat-icon">📊</div>
-                <h3>Dual Rating System</h3>
-                <p>Two independent ratings measure different skills. Hints block Hardcore gains — forcing you to grow both ways.</p>
-                <div class="rating-row">
-                    <div class="rr-item">
-                        <div class="rr-label">
-                            <span style="color:var(--red)">Hardcore</span>
-                            <span style="color:var(--text-muted)">No hints only</span>
-                        </div>
-                        <div class="rr-bar"><div class="rr-fill rr-hc"></div></div>
-                    </div>
-                    <div class="rr-item">
-                        <div class="rr-label">
-                            <span style="color:var(--blue)">Learning</span>
-                            <span style="color:var(--text-muted)">Hints allowed</span>
-                        </div>
-                        <div class="rr-bar"><div class="rr-fill rr-lr"></div></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Instant judging -->
-            <div class="feat-card">
-                <div class="feat-icon">⚡</div>
-                <h3>Instant Automated Judging</h3>
-                <p>Code is run against hidden test cases in real-time. Get your verdict in seconds — Accepted, WA, TLE, or RE.</p>
-            </div>
-
-            <!-- Contests -->
-            <div class="feat-card">
-                <div class="feat-icon">🏆</div>
-                <h3>Rated Contests</h3>
-                <p>Compete in timed contests with live leaderboards. Earn contest rating and measure yourself against peers.</p>
-            </div>
-
-            <!-- Languages -->
-            <div class="feat-card">
-                <div class="feat-icon">🌐</div>
-                <h3>12 Languages</h3>
-                <p>Python, C++, Java, JavaScript, Go, Rust, Ruby, TypeScript, Kotlin, Swift, C, PHP.</p>
-                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:12px">
-                    <?php foreach (['JS','PY','C++','Java','Go','Rust','Ruby','+5'] as $l): ?>
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:.68rem;
-                                 padding:2px 8px;border-radius:4px;
-                                 background:var(--bg-card2);color:var(--text-muted);
-                                 border:1px solid var(--border)"><?= $l ?></span>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- ── Problem preview ────────────────────────────────── -->
-    <?php if ($previewProblems): ?>
-    <div style="border-top:1px solid var(--border)">
-    <div class="lp-section">
-        <div class="lp-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-bottom:32px">
-            <div>
-                <p class="eyebrow">Problems</p>
-                <h2 style="margin-bottom:0">Dive in right now</h2>
-            </div>
-            <a href="/code-arena/problems.php"
-               style="font-size:.88rem;color:var(--accent);white-space:nowrap">
-                View all <?= $totalProblems ?> →
+    <header class="topbar">
+        <nav class="nav">
+            <a class="brand" href="/code-arena/index.php">
+                <span class="brand-mark"></span>
+                <span>Code<span>Arena</span></span>
             </a>
-        </div>
-
-        <div class="prob-grid">
-            <?php foreach ($previewProblems as $p):
-                $diffLower = strtolower($p['difficulty']);
-                $diffCls   = ['easy'=>'badge-easy','medium'=>'badge-medium','hard'=>'badge-hard'][$diffLower] ?? '';
-                $rate      = $p['total_submissions'] > 0
-                             ? round($p['total_accepted'] / $p['total_submissions'] * 100).'%'
-                             : '—';
-                $tags = $p['tags'] ? array_slice(array_map('trim', explode(',', $p['tags'])), 0, 3) : [];
-            ?>
-            <div class="prob-card">
-                <div class="prob-card-top">
-                    <div class="prob-card-title">
-                        <a href="/code-arena/problem.php?slug=<?= htmlspecialchars($p['slug']) ?>">
-                            <?= htmlspecialchars($p['title']) ?>
-                        </a>
-                    </div>
-                    <span class="badge <?= $diffCls ?>" style="flex-shrink:0"><?= $p['difficulty'] ?></span>
-                </div>
-                <?php if ($tags): ?>
-                <div class="prob-card-tags">
-                    <?php foreach ($tags as $tag): ?>
-                    <span class="prob-card-tag"><?= htmlspecialchars($tag) ?></span>
-                    <?php endforeach; ?>
-                </div>
+            <div class="nav-links">
+                <a class="active" href="/code-arena/index.php">Home</a>
+                <a href="/code-arena/contests.php">Contests</a>
+                <a href="/code-arena/problems.php">Practice</a>
+                <a href="/code-arena/leaderboard.php">Leaderboard</a>
+                <a href="/code-arena/discuss.php">Community</a>
+                <a href="#">Blog</a>
+            </div>
+            <div class="nav-actions">
+                <?php if ($loggedIn): ?>
+                    <a class="btn btn-ghost" href="/code-arena/dashboard.php">Dashboard</a>
+                <?php else: ?>
+                    <a class="btn btn-ghost" href="/code-arena/login.php">Login</a>
+                    <a class="btn btn-purple" href="/code-arena/register.php">Register</a>
                 <?php endif; ?>
-                <div class="prob-card-meta">
-                    <?= number_format($p['total_submissions']) ?> submissions &middot; <?= $rate ?> accepted
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="container hero">
+            <div class="hero-copy">
+                <h1>Master Algorithms.<br><span class="grad">Compete. Grow.</span></h1>
+                <p>Join a community of coders, solve challenging problems, compete in contests, and level up your skills.</p>
+                <div class="hero-buttons">
+                    <a class="btn btn-purple" href="/code-arena/register.php">Join the Arena</a>
+                    <a class="btn btn-outline" href="/code-arena/contests.php">Explore Contests</a>
+                </div>
+                <div class="stat-row">
+                    <div class="stat"><span class="icon">♙</span><div><strong>5K+</strong><span>Members</span></div></div>
+                    <div class="stat"><span class="icon">♕</span><div><strong>120+</strong><span>Contests</span></div></div>
+                    <div class="stat"><span class="icon">&lt;/&gt;</span><div><strong>1000+</strong><span>Problems</span></div></div>
+                    <div class="stat"><span class="icon">♧</span><div><strong>300+</strong><span>Active Users</span></div></div>
                 </div>
             </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    </div>
-    <?php endif; ?>
+            <div class="code-window" aria-label="Code preview">
+                <div class="code-head">
+                    <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+                    <span>main.cpp</span>
+                </div>
+<pre><span class="kw">#include</span> &lt;bits/stdc++.h&gt;
+<span class="kw">using namespace</span> std;
+<span class="type">int</span> main(){
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    <span class="type">int</span> n;
+    cin &gt;&gt; n;
+    vector&lt;<span class="type">int</span>&gt; a(n);
+    <span class="kw">for</span>(<span class="type">int</span> i=<span class="num">0</span>;i&lt;n;i++) cin &gt;&gt; a[i];
+    sort(a.begin(), a.end());
+    cout &lt;&lt; <span class="str">"Code. Compete. Conquer!"</span> &lt;&lt; endl;
+    <span class="kw">return</span> <span class="num">0</span>;
+}</pre>
+            </div>
+        </section>
 
-    <!-- ── Final CTA ──────────────────────────────────────── -->
-    <section class="cta-section">
-        <h2>Ready to start competing?</h2>
-        <p>
-            Join <?= number_format($totalUsers) ?> developers already on Code Arena.<br>
-            Free forever — no credit card required.
-        </p>
-        <div class="cta-pills">
-            <span class="cta-pill">✓ Free forever</span>
-            <span class="cta-pill">✓ 12 languages</span>
-            <span class="cta-pill">✓ Instant judging</span>
-            <span class="cta-pill">✓ 30-day roadmap</span>
-            <span class="cta-pill">✓ Dual ratings</span>
-        </div>
-        <?php if ($loggedIn): ?>
-            <a href="/code-arena/problems.php" class="btn-primary">Continue Solving →</a>
-        <?php else: ?>
-            <a href="/code-arena/register.php" class="btn-primary">Create Free Account →</a>
-        <?php endif; ?>
-    </section>
+        <div class="divider">
+            <section class="container section">
+                <div class="section-title">
+                    <h2>Everything you need to <span>level up.</span></h2>
+                    <p>Practice, compete, and collaborate with coders worldwide.</p>
+                </div>
+                <div class="features">
+                    <article class="feature-card"><span class="icon">&lt;/&gt;</span><h3>Practice Problems</h3><p>Solve curated problems ranging from beginner to advanced level.</p></article>
+                    <article class="feature-card"><span class="icon">♕</span><h3>Contests</h3><p>Compete in weekly and monthly contests and improve your ranking.</p></article>
+                    <article class="feature-card"><span class="icon">▥</span><h3>Leaderboard</h3><p>Track your progress and see how you rank among top coders.</p></article>
+                    <article class="feature-card"><span class="icon">♧</span><h3>Community</h3><p>Discuss, share ideas, and grow together with fellow programmers.</p></article>
+                    <article class="feature-card"><span class="icon">□</span><h3>Earn Rewards</h3><p>Win exciting prizes and recognition for your achievements.</p></article>
+                </div>
 
-    <!-- ── Footer ─────────────────────────────────────────── -->
-    <footer class="lp-footer">
-        <span>Code Arena &copy; <?= date('Y') ?></span>
-        <div class="lp-footer-links">
-            <a href="/code-arena/problems.php">Problems</a>
-            <a href="/code-arena/roadmap.php">Roadmap</a>
-            <a href="/code-arena/contests.php">Contests</a>
+                <div class="section-head">
+                    <h2>Upcoming Contests</h2>
+                    <a class="text-link" href="/code-arena/contests.php">View all contests →</a>
+                </div>
+                <div class="contests">
+                    <article class="contest-card">
+                        <span class="pill">Upcoming</span>
+                        <h3>CodeArena Weekly Contest #45</h3>
+                        <div class="date">◷ May 25, 2025 · 08:00 PM</div>
+                        <p>Weekly contest with interesting problems and fun challenges.</p>
+                        <div class="contest-foot"><span class="participants">♧ 120 Participants</span><a class="register" href="/code-arena/register.php">Register</a></div>
+                    </article>
+                    <article class="contest-card">
+                        <span class="pill">Upcoming</span>
+                        <h3>CodeArena Monthly Challenge</h3>
+                        <div class="date">◷ June 05, 2025 · 08:00 PM</div>
+                        <p>Monthly challenge with advanced problems and great rewards.</p>
+                        <div class="contest-foot"><span class="participants">♧ 230 Participants</span><a class="register" href="/code-arena/register.php">Register</a></div>
+                    </article>
+                    <article class="contest-card">
+                        <span class="pill">Upcoming</span>
+                        <h3>Summer Special Contest</h3>
+                        <div class="date">◷ June 15, 2025 · 07:00 PM</div>
+                        <p>Special summer contest with exciting challenges!</p>
+                        <div class="contest-foot"><span class="participants">♧ 150 Participants</span><a class="register" href="/code-arena/register.php">Register</a></div>
+                    </article>
+                </div>
+
+                <div class="section-head no-line">
+                    <h2>Popular Problem Categories</h2>
+                    <a class="text-link" href="/code-arena/problems.php">Explore all problems →</a>
+                </div>
+                <div class="categories">
+                    <a class="category-card" href="/code-arena/problems.php?tag=arrays"><span class="icon">▦</span><div><strong>Arrays</strong><span>256 Problems</span></div></a>
+                    <a class="category-card" href="/code-arena/problems.php?tag=dynamic-programming"><span class="icon">ϟ</span><div><strong>Dynamic Programming</strong><span>312 Problems</span></div></a>
+                    <a class="category-card" href="/code-arena/problems.php?tag=graphs"><span class="icon">⌘</span><div><strong>Graphs</strong><span>198 Problems</span></div></a>
+                    <a class="category-card" href="/code-arena/problems.php?tag=greedy"><span class="icon">◎</span><div><strong>Greedy</strong><span>145 Problems</span></div></a>
+                    <a class="category-card" href="/code-arena/problems.php?tag=string"><span class="icon">T</span><div><strong>String</strong><span>210 Problems</span></div></a>
+                    <a class="category-card" href="/code-arena/problems.php?tag=math"><span class="icon">Σ</span><div><strong>Math</strong><span>178 Problems</span></div></a>
+                </div>
+
+                <section class="cta">
+                    <div class="cta-art" aria-hidden="true"><span class="person p1"></span><span class="person p2"></span><span class="screen"></span></div>
+                    <div class="cta-copy">
+                        <h2>Ready to start your journey?</h2>
+                        <p>Join thousands of coders who are learning, competing, and growing together.</p>
+                        <a class="btn btn-purple" href="/code-arena/register.php">Join the Community</a>
+                    </div>
+                </section>
+            </section>
         </div>
-        <span>Built for coders.</span>
+    </main>
+
+    <footer class="footer-wrap">
+        <div class="container footer">
+            <div>
+                <a class="brand" href="/code-arena/index.php"><span class="brand-mark"></span><span>Code<span>Arena</span></span></a>
+                <p>A platform for coders to practice, compete and grow together.</p>
+                <div class="socials"><span class="social">G</span><span class="social">X</span><span class="social">D</span><span class="social">Y</span></div>
+            </div>
+            <div class="foot-col"><h3>Platform</h3><a href="/code-arena/contests.php">Contests</a><a href="/code-arena/problems.php">Practice</a><a href="/code-arena/leaderboard.php">Leaderboard</a><a href="#">Blog</a></div>
+            <div class="foot-col"><h3>Community</h3><a href="/code-arena/discuss.php">Discuss</a><a href="#">Groups</a><a href="/code-arena/contests.php">Events</a><a href="#">Members</a></div>
+            <div class="foot-col"><h3>Resources</h3><a href="#">Tutorials</a><a href="#">FAQs</a><a href="#">Rules</a><a href="#">Support</a></div>
+            <div class="foot-col"><h3>Company</h3><a href="#">About Us</a><a href="#">Contact</a><a href="#">Terms</a><a href="#">Privacy</a></div>
+        </div>
+        <div class="container copyright">© 2025 CodeArena. All rights reserved.</div>
     </footer>
 
-</div><!-- /.lp-page -->
+    <script>
+        document.querySelectorAll('.feature-card,.contest-card,.category-card').forEach(card => {
+            card.addEventListener('mousemove', event => {
+                const rect = card.getBoundingClientRect();
+                card.style.setProperty('--mx', `${event.clientX - rect.left}px`);
+                card.style.setProperty('--my', `${event.clientY - rect.top}px`);
+            });
+        });
+    </script>
 </body>
 </html>

@@ -12,6 +12,9 @@ methodCheck('GET');
 requireLogin();
 
 $uid = currentUserId();
+if (isAdminUserView() && adminViewUserId()) {
+    $uid = adminViewUserId();
+}
 
 $userStmt = $pdo->prepare(
     'SELECT id, username, role,

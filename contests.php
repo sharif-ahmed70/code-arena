@@ -13,26 +13,26 @@ $initial = strtoupper(substr($username, 0, 1));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contest Tracker - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         :root {
-            --ca-bg: #0b0f17;
-            --ca-bg-2: #101622;
-            --ca-glass: rgba(18, 24, 36, .72);
-            --ca-glass-strong: rgba(22, 30, 45, .9);
-            --ca-line: rgba(255, 255, 255, .09);
-            --ca-line-strong: rgba(255, 255, 255, .14);
-            --ca-text: #f7f9fc;
-            --ca-muted: #a2acbd;
-            --ca-dim: #687386;
-            --ca-green: #35e59b;
-            --ca-blue: #67a7ff;
-            --ca-purple: #a78bfa;
+            --ca-bg: #070a12;
+            --ca-bg-2: #0b0f1a;
+            --ca-glass: rgba(255, 255, 255, .045);
+            --ca-glass-strong: rgba(255, 255, 255, .07);
+            --ca-line: rgba(255, 255, 255, .08);
+            --ca-line-strong: rgba(176, 96, 255, .34);
+            --ca-text: #f5f2ff;
+            --ca-muted: #929ab2;
+            --ca-dim: #68718a;
+            --ca-green: #22c55e;
+            --ca-blue: #a78bfa;
+            --ca-purple: #b060ff;
             --ca-yellow: #f6c96b;
             --ca-red: #ff7180;
-            --ca-radius: 14px;
-            --ca-radius-sm: 10px;
-            --ca-shadow: 0 20px 70px rgba(0, 0, 0, .38);
+            --ca-radius: 16px;
+            --ca-radius-sm: 12px;
+            --ca-shadow: 0 20px 70px rgba(89, 40, 180, .25);
             --ca-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
@@ -44,9 +44,9 @@ $initial = strtoupper(substr($username, 0, 1));
             font-family: var(--ca-font);
             letter-spacing: 0;
             background:
-                radial-gradient(circle at 12% 0%, rgba(53, 229, 155, .12), transparent 28%),
-                radial-gradient(circle at 80% 10%, rgba(103, 167, 255, .12), transparent 30%),
-                linear-gradient(180deg, #0b0f17 0%, #08101a 100%);
+                radial-gradient(circle at 76% 8%, rgba(124, 58, 237, .22), transparent 22%),
+                radial-gradient(circle at 12% 0%, rgba(34, 197, 94, .08), transparent 24%),
+                linear-gradient(180deg, #070a12 0%, #0b0f1a 48%, #070a12 100%);
         }
         a { text-decoration: none; }
         button, input, textarea { font-family: inherit; }
@@ -127,7 +127,7 @@ $initial = strtoupper(substr($username, 0, 1));
         .center-nav a:hover,
         .center-nav a.active {
             color: var(--ca-text);
-            background: rgba(255,255,255,.07);
+            background: rgba(124,58,237,.14);
             transform: translateY(-1px);
         }
 

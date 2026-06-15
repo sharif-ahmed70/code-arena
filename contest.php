@@ -97,7 +97,7 @@ if (isset($_GET['practice']) && $contest['status'] !== 'ended') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($contest['title']) ?> — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .contest-hero {
             background: var(--bg-card); border-bottom: 1px solid var(--border);
