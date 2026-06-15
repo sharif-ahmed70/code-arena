@@ -13,8 +13,11 @@
 require_once '../../config/db.php';
 require_once '../../includes/session.php';
 require_once '../../includes/response.php';
+require_once '../../includes/contest.php';
+require_once '../../includes/leaderboard.php';
 
 methodCheck('GET');
+syncContestStatuses($pdo);
 
 $contestId = (int) ($_GET['contest_id'] ?? 0);
 if (!$contestId) err('contest_id required');
@@ -126,6 +129,8 @@ foreach ($ranked as &$row) {
     $row['rank'] = $rank++;
 }
 unset($row);
+
+finalizeContestLeaderboard($pdo, $contest, $ranked);
 
 ok([
     'contest' => [

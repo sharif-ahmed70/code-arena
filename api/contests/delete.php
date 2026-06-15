@@ -6,10 +6,12 @@
 require_once '../../config/db.php';
 require_once '../../includes/session.php';
 require_once '../../includes/response.php';
+require_once '../../includes/contest.php';
 
 if (!in_array($_SERVER['REQUEST_METHOD'], ['POST', 'DELETE'])) err('Method not allowed', 405);
 if (!isLoggedIn()) err('Login required', 401);
 if (!isAdmin())    err('Admin access required', 403);
+syncContestStatuses($pdo);
 
 $body      = jsonBody();
 $contestId = (int) ($body['contest_id'] ?? 0);

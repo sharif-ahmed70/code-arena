@@ -20,6 +20,9 @@ if (!$contestId) { header('Location: /code-arena/contests.php'); exit; }
         @media(max-width:900px){ .manager-grid { grid-template-columns:1fr; } }
         .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         @media(max-width:600px){ .form-row { grid-template-columns:1fr; } }
+        .date-time-pair { display:grid; grid-template-columns:minmax(0,1fr) 124px; gap:10px; }
+        .date-time-pair .form-input { color-scheme:dark; }
+        .field-hint { margin-top:6px; color:var(--text-muted); font-size:.76rem; line-height:1.45; }
         .muted-help { color:var(--text-muted); font-size:.78rem; line-height:1.55; margin-top:6px; }
         .inline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
         .mini-input { width:82px; padding:6px 8px; background:var(--bg); border:1px solid var(--border);
@@ -50,12 +53,20 @@ if (!$contestId) { header('Location: /code-arena/contests.php'); exit; }
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Start</label>
-                        <input id="ct-start" type="datetime-local" class="form-input">
+                        <label class="form-label">Contest Date</label>
+                        <div class="date-time-pair">
+                            <input id="ct-start-date" type="date" class="form-input" placeholder="2026-06-20" aria-label="Contest start date" title="Contest Date: YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" inputmode="numeric">
+                            <input id="ct-start-time" type="time" class="form-input" placeholder="18:30" aria-label="Contest start time" title="Contest Time: HH:MM" pattern="[0-2][0-9]:[0-5][0-9]">
+                        </div>
+                        <div class="field-hint">Start date and time, e.g. 2026-06-20 at 18:30.</div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">End</label>
-                        <input id="ct-end" type="datetime-local" class="form-input">
+                        <label class="form-label">End Date & Time</label>
+                        <div class="date-time-pair">
+                            <input id="ct-end-date" type="date" class="form-input" placeholder="2026-06-20" aria-label="Contest end date" title="Contest Date: YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" inputmode="numeric">
+                            <input id="ct-end-time" type="time" class="form-input" placeholder="20:30" aria-label="Contest end time" title="Contest Time: HH:MM" pattern="[0-2][0-9]:[0-5][0-9]">
+                        </div>
+                        <div class="field-hint">Manual typing is supported as a fallback.</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -131,6 +142,35 @@ function toLocalInput(dt) {
     return dt ? dt.replace(' ', 'T').slice(0, 16) : '';
 }
 
+function splitDateTime(value) {
+    const normalized = toLocalInput(value);
+    const [date = '', time = ''] = normalized.split('T');
+    return { date, time };
+}
+
+function setDateTime(prefix, value) {
+    const parts = splitDateTime(value);
+    document.getElementById(`${prefix}-date`).value = parts.date;
+    document.getElementById(`${prefix}-time`).value = parts.time;
+}
+
+function validDateInput(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00`).getTime());
+}
+
+function validTimeInput(value) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function composeDateTime(prefix, label) {
+    const date = document.getElementById(`${prefix}-date`).value.trim();
+    const time = document.getElementById(`${prefix}-time`).value.trim();
+    if (!date || !time) throw new Error(`${label} date and time are required.`);
+    if (!validDateInput(date)) throw new Error(`${label} date must use YYYY-MM-DD format.`);
+    if (!validTimeInput(time)) throw new Error(`${label} time must use HH:MM 24-hour format.`);
+    return `${date}T${time}`;
+}
+
 async function loadManager() {
     const { ok, data } = await api(`/code-arena/api/contests/manage.php?contest_id=${CONTEST_ID}`);
     if (!ok || !data.success) {
@@ -140,8 +180,8 @@ async function loadManager() {
 
     const { contest, problems, participants } = data.data;
     document.getElementById('ct-title').value = contest.title || '';
-    document.getElementById('ct-start').value = toLocalInput(contest.start_time);
-    document.getElementById('ct-end').value = toLocalInput(contest.end_time);
+    setDateTime('ct-start', contest.start_time);
+    setDateTime('ct-end', contest.end_time);
     document.getElementById('ct-desc').value = contest.description || '';
     document.getElementById('ct-rated').checked = Number(contest.is_rated) === 1;
 
@@ -193,17 +233,33 @@ function renderParticipants(participants) {
 }
 
 async function saveContest() {
+    const msg = document.getElementById('details-msg');
+    let startTime;
+    let endTime;
+    try {
+        startTime = composeDateTime('ct-start', 'Start');
+        endTime = composeDateTime('ct-end', 'End');
+        if (new Date(startTime) >= new Date(endTime)) {
+            throw new Error('End date/time must be after start date/time.');
+        }
+    } catch (error) {
+        msg.textContent = error.message;
+        msg.style.color = 'var(--red)';
+        return;
+    }
+
     const payload = {
         action: 'update_contest',
         contest_id: CONTEST_ID,
         title: document.getElementById('ct-title').value.trim(),
-        start_time: document.getElementById('ct-start').value,
-        end_time: document.getElementById('ct-end').value,
+        start_time: startTime,
+        end_time: endTime,
         description: document.getElementById('ct-desc').value.trim(),
         is_rated: document.getElementById('ct-rated').checked ? 1 : 0,
     };
     const { ok, data } = await postManage(payload);
-    document.getElementById('details-msg').textContent = ok && data.success ? 'Saved' : (data.message || 'Failed');
+    msg.textContent = ok && data.success ? 'Saved' : (data.message || 'Failed');
+    msg.style.color = ok && data.success ? 'var(--text-muted)' : 'var(--red)';
     if (ok && data.success) toast('Contest details saved', 'success');
 }
 

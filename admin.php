@@ -96,7 +96,7 @@ $currentAdminId = currentUserId();
             <table>
                 <thead><tr>
                     <th>ID</th><th>Username</th><th>Email</th><th>Role</th>
-                    <th>Status</th><th>HC Rating</th><th>LR Rating</th><th>Joined</th><th>Action</th>
+                    <th>Status</th><th>Skill Rating</th><th>Contest Rating</th><th>Joined</th><th>Action</th>
                 </tr></thead>
                 <tbody id="users-body">
                     <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
@@ -292,8 +292,8 @@ async function loadUsers(page = 1) {
                 ${disableRole ? `<span style="font-size:.75rem;color:var(--text-muted);display:block;margin-top:2px">${roleTitle}</span>` : ''}
             </td>
             <td>${Number(u.is_blocked) ? '<span style="color:var(--red)">Blocked</span>' : '<span style="color:var(--accent)">Active</span>'}</td>
-            <td style="color:var(--red)">${u.hardcore_rating}</td>
-            <td style="color:var(--blue)">${u.learning_rating}</td>
+            <td style="color:var(--accent)">${u.skill_rating || 1200}</td>
+            <td style="color:var(--yellow)">${u.contest_rating || 1200}</td>
             <td style="font-size:.8rem;color:var(--text-muted)">${timeAgo(u.created_at)}</td>
             <td>
                 ${Number(u.is_blocked)

@@ -512,6 +512,24 @@ $initial = strtoupper(substr($username, 0, 1));
             border: 1px solid rgba(53,229,155,.18);
             background: linear-gradient(135deg, rgba(53,229,155,.08), rgba(103,167,255,.045));
         }
+        .focus-mode-pill {
+            width: fit-content;
+            justify-self: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(53,229,155,.28);
+            background: rgba(53,229,155,.1);
+            color: var(--ca-green);
+            font-size: .68rem;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+        .focus-mode-pill.break {
+            border-color: rgba(103,167,255,.3);
+            background: rgba(103,167,255,.11);
+            color: var(--ca-blue);
+        }
         .focus-timer-display {
             color: var(--ca-text);
             font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -542,6 +560,44 @@ $initial = strtoupper(substr($username, 0, 1));
         .focus-timer-mini:hover {
             color: var(--ca-text);
             border-color: rgba(103,167,255,.28);
+        }
+        .focus-session-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .focus-session-tile {
+            padding: 9px;
+            border-radius: 11px;
+            border: 1px solid var(--ca-line);
+            background: rgba(255,255,255,.035);
+            text-align: center;
+        }
+        .focus-session-tile strong {
+            display: block;
+            color: var(--ca-text);
+            font-size: 1rem;
+            line-height: 1;
+        }
+        .focus-session-tile span {
+            display: block;
+            margin-top: 5px;
+            color: var(--ca-muted);
+            font-size: .66rem;
+        }
+        .focus-suggestion {
+            display: block;
+            padding: 9px 10px;
+            border-radius: 11px;
+            border: 1px solid rgba(103,167,255,.18);
+            background: rgba(103,167,255,.07);
+            color: var(--ca-muted);
+            font-size: .75rem;
+            line-height: 1.35;
+        }
+        .focus-suggestion:hover {
+            color: var(--ca-text);
+            border-color: rgba(103,167,255,.34);
         }
 
         .main-content { min-width: 0; }
@@ -1198,6 +1254,20 @@ $initial = strtoupper(substr($username, 0, 1));
             gap: 14px;
         }
         .form-group.full { grid-column: 1 / -1; }
+        .date-time-pair {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 132px;
+            gap: 10px;
+        }
+        .date-time-pair .form-input {
+            color-scheme: dark;
+        }
+        .field-hint {
+            margin-top: 6px;
+            color: var(--ca-muted);
+            font-size: .74rem;
+            line-height: 1.35;
+        }
 
         .delete-overlay {
             position: fixed;
@@ -1558,9 +1628,15 @@ $initial = strtoupper(substr($username, 0, 1));
                 <h2 class="section-label">Focus Timer</h2>
                 <div class="focus-timer-card">
                     <div>
+                        <div class="focus-mode-pill" id="focus-mode-pill">Work Mode</div>
                         <div class="focus-timer-display" id="focus-timer-display">25:00</div>
                         <div class="focus-timer-sub" id="focus-timer-status">Study mode ready</div>
                     </div>
+                    <div class="focus-session-grid">
+                        <div class="focus-session-tile"><strong id="focus-work-count">0</strong><span>Work sessions</span></div>
+                        <div class="focus-session-tile"><strong id="focus-total-count">0</strong><span>Page total</span></div>
+                    </div>
+                    <a class="focus-suggestion" id="focus-practice-link" href="/code-arena/problems.php?tag=dynamic-programming">Start timer to unlock a focused practice suggestion.</a>
                     <div class="focus-timer-actions">
                         <button class="button-primary" type="button" id="focus-timer-toggle" onclick="toggleFocusTimer()">Start</button>
                         <button class="focus-timer-mini" type="button" title="Reset focus timer" onclick="resetFocusTimer()">Reset</button>
@@ -1638,12 +1714,20 @@ $initial = strtoupper(substr($username, 0, 1));
                         <input type="text" id="ct-title" class="form-input" placeholder="Weekly Contest #1">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Start Time *</label>
-                        <input type="datetime-local" id="ct-start" class="form-input">
+                        <label class="form-label">Contest Date *</label>
+                        <div class="date-time-pair">
+                            <input type="date" id="ct-start-date" class="form-input" placeholder="2026-06-20" aria-label="Contest start date" title="Contest Date: YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" inputmode="numeric">
+                            <input type="time" id="ct-start-time" class="form-input" placeholder="18:30" aria-label="Contest start time" title="Contest Time: HH:MM" pattern="[0-2][0-9]:[0-5][0-9]">
+                        </div>
+                        <div class="field-hint">Start date and time, e.g. 2026-06-20 at 18:30.</div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">End Time *</label>
-                        <input type="datetime-local" id="ct-end" class="form-input">
+                        <label class="form-label">End Date & Time *</label>
+                        <div class="date-time-pair">
+                            <input type="date" id="ct-end-date" class="form-input" placeholder="2026-06-20" aria-label="Contest end date" title="Contest Date: YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" inputmode="numeric">
+                            <input type="time" id="ct-end-time" class="form-input" placeholder="20:30" aria-label="Contest end time" title="Contest Time: HH:MM" pattern="[0-2][0-9]:[0-5][0-9]">
+                        </div>
+                        <div class="field-hint">End date and time. Manual typing still works.</div>
                     </div>
                     <div class="form-group full">
                         <label class="form-label">Problem IDs</label>
@@ -1796,9 +1880,13 @@ let heroSlideStartedAt = Date.now();
 let lastHeroContestId = null;
 const HERO_SLIDE_MS = 4500;
 const FOCUS_DEFAULT_SECONDS = 25 * 60;
+const BREAK_DEFAULT_SECONDS = 5 * 60;
+let focusMode = 'work';
 let focusRemainingSeconds = FOCUS_DEFAULT_SECONDS;
 let focusTimerId = null;
 let focusRunning = false;
+let focusWorkSessions = 0;
+let focusTotalSessions = 0;
 
 function toggleProfileMenu() {
     document.getElementById('profile-menu').classList.toggle('open');
@@ -2380,17 +2468,75 @@ function renderFocusTimer() {
     const display = document.getElementById('focus-timer-display');
     const status = document.getElementById('focus-timer-status');
     const toggle = document.getElementById('focus-timer-toggle');
+    const pill = document.getElementById('focus-mode-pill');
+    const workCount = document.getElementById('focus-work-count');
+    const totalCount = document.getElementById('focus-total-count');
+    const practiceLink = document.getElementById('focus-practice-link');
     if (!display || !status || !toggle) return;
 
     const minutes = Math.floor(focusRemainingSeconds / 60);
     const seconds = focusRemainingSeconds % 60;
+    const modeLabel = focusMode === 'work' ? 'Work Mode' : 'Break Mode';
     display.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     toggle.textContent = focusRunning ? 'Pause' : 'Start';
+    if (pill) {
+        pill.textContent = modeLabel;
+        pill.classList.toggle('break', focusMode === 'break');
+    }
+    if (workCount) workCount.textContent = focusWorkSessions;
+    if (totalCount) totalCount.textContent = focusTotalSessions;
     status.textContent = focusRunning
-        ? 'Deep focus session running'
-        : focusRemainingSeconds === FOCUS_DEFAULT_SECONDS
+        ? (focusMode === 'work' ? 'WORKING - deep focus active' : 'BREAK - recharge for the next round')
+        : focusRemainingSeconds === modeDuration()
             ? 'Study mode ready'
             : 'Paused';
+    if (practiceLink) {
+        practiceLink.textContent = focusRunning
+            ? 'Timer active: try DP practice problems during this focus block.'
+            : 'Smart suggestion: prepare with DP, greedy, or graph practice.';
+        practiceLink.href = focusMode === 'work'
+            ? '/code-arena/problems.php?tag=dynamic-programming'
+            : '/code-arena/problems.php?tag=implementation';
+    }
+}
+
+function modeDuration() {
+    return focusMode === 'work' ? FOCUS_DEFAULT_SECONDS : BREAK_DEFAULT_SECONDS;
+}
+
+function playFocusAlert() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        [0, 160, 320].forEach(delay => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = focusMode === 'work' ? 880 : 660;
+            gain.gain.value = 0.08;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + delay / 1000);
+            osc.stop(ctx.currentTime + delay / 1000 + 0.12);
+        });
+        window.setTimeout(() => ctx.close(), 900);
+    } catch (_) {}
+}
+
+function completeFocusSegment() {
+    playFocusAlert();
+    if (focusMode === 'work') {
+        focusWorkSessions++;
+        focusTotalSessions++;
+        focusMode = 'break';
+        focusRemainingSeconds = BREAK_DEFAULT_SECONDS;
+        toast('Work session complete. Break mode started.', 'success');
+    } else {
+        focusTotalSessions++;
+        focusMode = 'work';
+        focusRemainingSeconds = FOCUS_DEFAULT_SECONDS;
+        toast('Break complete. Work mode ready.', 'success');
+    }
 }
 
 function toggleFocusTimer() {
@@ -2402,7 +2548,7 @@ function toggleFocusTimer() {
         return;
     }
 
-    if (focusRemainingSeconds <= 0) focusRemainingSeconds = FOCUS_DEFAULT_SECONDS;
+    if (focusRemainingSeconds <= 0) focusRemainingSeconds = modeDuration();
     focusRunning = true;
     renderFocusTimer();
     focusTimerId = window.setInterval(() => {
@@ -2411,7 +2557,7 @@ function toggleFocusTimer() {
             window.clearInterval(focusTimerId);
             focusTimerId = null;
             focusRunning = false;
-            toast('Focus session complete', 'success');
+            completeFocusSegment();
         }
         renderFocusTimer();
     }, 1000);
@@ -2421,6 +2567,7 @@ function resetFocusTimer() {
     if (focusTimerId) window.clearInterval(focusTimerId);
     focusTimerId = null;
     focusRunning = false;
+    focusMode = 'work';
     focusRemainingSeconds = FOCUS_DEFAULT_SECONDS;
     renderFocusTimer();
 }
@@ -2523,17 +2670,57 @@ function showCreateForm() {
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function validDateInput(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00`).getTime());
+}
+
+function validTimeInput(value) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function composeContestDateTime(dateId, timeId, label) {
+    const date = document.getElementById(dateId).value.trim();
+    const time = document.getElementById(timeId).value.trim();
+    if (!date || !time) throw new Error(`${label} date and time are required.`);
+    if (!validDateInput(date)) throw new Error(`${label} date must use YYYY-MM-DD format.`);
+    if (!validTimeInput(time)) throw new Error(`${label} time must use HH:MM 24-hour format.`);
+    return `${date}T${time}`;
+}
+
 async function createContest() {
+    const msg = document.getElementById('ct-msg');
+    msg.textContent = '';
+    msg.style.color = 'var(--ca-muted)';
+    const title = document.getElementById('ct-title').value.trim();
+    if (!title) {
+        msg.textContent = 'Contest title is required.';
+        msg.style.color = 'var(--ca-red)';
+        return;
+    }
+
+    let startTime;
+    let endTime;
+    try {
+        startTime = composeContestDateTime('ct-start-date', 'ct-start-time', 'Start');
+        endTime = composeContestDateTime('ct-end-date', 'ct-end-time', 'End');
+        if (new Date(startTime) >= new Date(endTime)) {
+            throw new Error('End date/time must be after start date/time.');
+        }
+    } catch (error) {
+        msg.textContent = error.message;
+        msg.style.color = 'var(--ca-red)';
+        return;
+    }
+
     const payload = {
-        title: document.getElementById('ct-title').value.trim(),
-        start_time: document.getElementById('ct-start').value,
-        end_time: document.getElementById('ct-end').value,
+        title,
+        start_time: startTime,
+        end_time: endTime,
         description: document.getElementById('ct-desc').value.trim(),
         problem_ids: document.getElementById('ct-problems').value.trim(),
         is_rated: 1,
     };
 
-    const msg = document.getElementById('ct-msg');
     const { ok, data } = await api('/code-arena/api/contests/index.php', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -2541,6 +2728,10 @@ async function createContest() {
     if (ok && data.success) {
         toast('Contest created', 'success');
         document.getElementById('create-form').style.display = 'none';
+        ['ct-title','ct-start-date','ct-start-time','ct-end-date','ct-end-time','ct-problems','ct-desc'].forEach(id => {
+            const field = document.getElementById(id);
+            if (field) field.value = '';
+        });
         loadContests(activeStatus);
     } else {
         msg.textContent = data.message || 'Failed';

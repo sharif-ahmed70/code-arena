@@ -10,15 +10,13 @@
 require_once '../../config/db.php';
 require_once '../../includes/session.php';
 require_once '../../includes/response.php';
+require_once '../../includes/contest.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
 // ── Sync contest statuses based on current time ──────────────
-$pdo->exec(
-    "UPDATE contests SET status = 'active'  WHERE status = 'upcoming' AND start_time <= NOW();
-     UPDATE contests SET status = 'ended'   WHERE status = 'active'   AND end_time   <= NOW();"
-);
+syncContestStatuses($pdo);
 
 // ── List / single ─────────────────────────────────────────────
 if ($method === 'GET') {
@@ -62,6 +60,7 @@ if ($method === 'GET') {
     }
 
     $filter = $_GET['status'] ?? '';
+    if ($filter === 'live') $filter = 'active';
     $where  = $filter && in_array($filter, ['upcoming','active','ended'])
             ? 'WHERE c.status = ?' : '';
     $params = $filter ? [$filter] : [];
@@ -80,6 +79,7 @@ if ($method === 'GET') {
 // ── Join contest ──────────────────────────────────────────────
 if ($method === 'POST' && $action === 'join') {
     requireLogin();
+    syncContestStatuses($pdo);
     $body      = jsonBody();
     $contestId = (int) ($body['contest_id'] ?? 0);
     if (!$contestId) err('contest_id required');
@@ -109,13 +109,14 @@ if ($method === 'POST' && !$action) {
     $start = trim($b['start_time'] ?? '');
     $end   = trim($b['end_time']   ?? '');
     if (!$title || !$start || !$end) err('title, start_time and end_time are required');
+    [$start, $end, $status] = validateContestWindow($start, $end);
 
     $base   = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', trim($title, '-')));
     $slug   = $base . '-' . time();
 
     $stmt = $pdo->prepare(
-        'INSERT INTO contests (title, slug, description, start_time, end_time, created_by, is_rated)
-         VALUES (?,?,?,?,?,?,?)'
+        'INSERT INTO contests (title, slug, description, start_time, end_time, created_by, is_rated, status)
+         VALUES (?,?,?,?,?,?,?,?)'
     );
     $stmt->execute([
         $title,
@@ -125,6 +126,7 @@ if ($method === 'POST' && !$action) {
         $end,
         currentUserId(),
         isset($b['is_rated']) ? (int)(bool)$b['is_rated'] : 1,
+        $status,
     ]);
     $contestId = (int)$pdo->lastInsertId();
 

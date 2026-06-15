@@ -14,7 +14,11 @@ requireLogin();
 $uid = currentUserId();
 
 $userStmt = $pdo->prepare(
-    'SELECT id, username, role, hardcore_rating, learning_rating, roadmap_day, created_at
+    'SELECT id, username, role,
+            COALESCE(skill_rating, hardcore_rating, 1200) AS skill_rating,
+            COALESCE(skill_mode, "hardcore") AS skill_mode,
+            COALESCE(contest_rating, 1200) AS contest_rating,
+            hardcore_rating, learning_rating, roadmap_day, created_at
      FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0'
 );
 $userStmt->execute([$uid]);

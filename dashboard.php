@@ -54,12 +54,24 @@ requireLogin();
         .weak-bar span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--accent),var(--blue)); }
         .weak-level { color:var(--text-muted); font-size:.78rem; text-align:right; }
         .weak-actions { display:flex; flex-direction:column; gap:10px; min-width:170px; }
+        .weak-analytics-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(240px,.85fr); gap:16px; margin-top:18px; }
+        .trend-card, .history-card, .smart-link-card { padding:14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:rgba(255,255,255,.025); }
+        .trend-card h4, .history-card h4, .smart-link-card h4 { margin:0 0 12px; font-size:.9rem; }
+        .trend-bars { height:138px; display:grid; grid-template-columns:repeat(7,1fr); gap:8px; align-items:end; padding:12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card2); }
+        .trend-bar-wrap { display:grid; gap:6px; align-items:end; justify-items:center; height:100%; }
+        .trend-bar { width:100%; min-height:8px; border-radius:999px 999px 4px 4px; background:linear-gradient(180deg,var(--accent),var(--blue)); }
+        .trend-label { color:var(--text-muted); font-size:.68rem; }
+        .history-list, .smart-link-list { display:grid; gap:9px; }
+        .history-item, .smart-link-item { display:block; padding:10px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card2); color:var(--text-muted); font-size:.82rem; line-height:1.4; }
+        .smart-link-item strong { display:block; color:var(--text); margin-bottom:4px; }
+        .smart-link-item:hover { border-color:rgba(0,232,122,.28); color:var(--text); }
         @media(max-width:900px) {
             .dash-head { align-items:flex-start; flex-direction:column; }
             .metric-grid { grid-template-columns:repeat(2,1fr); }
             .dashboard-grid { grid-template-columns:1fr; }
             .weak-panel-body { grid-template-columns:1fr; }
             .weak-actions { flex-direction:row; flex-wrap:wrap; }
+            .weak-analytics-grid { grid-template-columns:1fr; }
         }
         @media(max-width:560px) {
             .metric-grid, .mini-grid { grid-template-columns:1fr; }
@@ -98,6 +110,20 @@ requireLogin();
                 <a class="btn-primary" href="/code-arena/analytics.php">View Details</a>
                 <a class="btn-outline" href="/code-arena/problems.php?sort=recommended">Practice Now</a>
             </div>
+        </div>
+        <div class="weak-analytics-grid">
+            <div class="trend-card">
+                <h4>Weekly Progress Trend</h4>
+                <div class="trend-bars" id="weak-trend-chart"></div>
+            </div>
+            <div class="history-card">
+                <h4>Improvement History</h4>
+                <div class="history-list" id="weak-history-list"></div>
+            </div>
+        </div>
+        <div class="smart-link-card" style="margin-top:16px">
+            <h4>Smart Suggestions</h4>
+            <div class="smart-link-list" id="weak-smart-links"></div>
         </div>
     </section>
 
@@ -197,7 +223,7 @@ async function loadDashboard() {
         <div class="metric"><div class="metric-value">${s.solved_problems}</div><div class="metric-label">Solved</div></div>
         <div class="metric"><div class="metric-value">${acceptance}%</div><div class="metric-label">Acceptance</div></div>
         <div class="metric"><div class="metric-value">${s.streak_days}</div><div class="metric-label">Day Streak</div></div>
-        <div class="metric"><div class="metric-value">${d.user.learning_rating || 1200}</div><div class="metric-label">Learning Rating</div></div>`;
+        <div class="metric"><div class="metric-value">${d.user.skill_rating || 1200}</div><div class="metric-label">Skill Rating</div></div>`;
 
     renderNext(d.recommended_problem, d.weak_topic, d.roadmap.next_problem);
     renderRoadmap(d.roadmap);
@@ -255,8 +281,9 @@ function renderSaved(rows) {
 
 function renderWeakAreas(d) {
     const weakTopic = d.weak_topic ? String(d.weak_topic.tag || '').replace(/-/g, ' ') : '';
+    const weakTag = d.weak_topic?.tag || 'graphs';
     const rows = [
-        { skill: weakTopic || 'Graphs', level: weakTopic ? 'Weak' : 'Weak', score: 32, tag: d.weak_topic?.tag || 'graphs' },
+        { skill: weakTopic || 'Graphs', level: weakTopic ? 'Weak' : 'Weak', score: 32, tag: weakTag },
         { skill: 'DP', level: 'Medium', score: 58, tag: 'dynamic-programming' },
         { skill: 'Trees', level: 'Strong', score: 82, tag: 'trees' },
     ];
@@ -269,6 +296,51 @@ function renderWeakAreas(d) {
             <a class="weak-level" href="/code-arena/analytics.php?topic=${encodeURIComponent(item.tag)}">${item.level}</a>
         </div>
     `).join('');
+
+    const trend = [
+        { day: 'Mon', solved: 2, accuracy: 54 },
+        { day: 'Tue', solved: 3, accuracy: 58 },
+        { day: 'Wed', solved: 1, accuracy: 50 },
+        { day: 'Thu', solved: 4, accuracy: 64 },
+        { day: 'Fri', solved: 3, accuracy: 67 },
+        { day: 'Sat', solved: 5, accuracy: 72 },
+        { day: 'Sun', solved: 4, accuracy: 76 },
+    ];
+    document.getElementById('weak-trend-chart').innerHTML = trend.map(item => `
+        <a class="trend-bar-wrap" href="/code-arena/analytics.php?day=${encodeURIComponent(item.day)}" title="${item.solved} solved, ${item.accuracy}% accuracy">
+            <span class="trend-bar" style="height:${Math.max(14, item.accuracy)}%"></span>
+            <span class="trend-label">${item.day}</span>
+        </a>
+    `).join('');
+
+    document.getElementById('weak-history-list').innerHTML = [
+        `${rows[0].skill} improved from Weak to Medium target range`,
+        'DP accuracy increased over the last practice block',
+        'Trees remained stable with strong solve consistency'
+    ].map(item => `<a class="history-item" href="/code-arena/analytics.php">${escHtml(item)}</a>`).join('');
+
+    document.getElementById('weak-smart-links').innerHTML = [
+        {
+            title: `${rows[0].skill} practice set`,
+            body: 'Open filtered problems for the current weak topic.',
+            href: `/code-arena/problems.php?tag=${encodeURIComponent(weakTag)}`
+        },
+        {
+            title: 'Contest suggestion',
+            body: `Find contests that match ${rows[0].skill} preparation.`,
+            href: `/code-arena/contests.php?tag=${encodeURIComponent(weakTag)}`
+        },
+        {
+            title: 'Detailed AI insight',
+            body: 'Review trend and improvement plan.',
+            href: `/code-arena/analytics.php?topic=${encodeURIComponent(weakTag)}`
+        }
+    ].map(item => `
+        <a class="smart-link-item" href="${item.href}">
+            <strong>${escHtml(item.title)}</strong>
+            ${escHtml(item.body)}
+        </a>
+    `).join('');
 }
 
 function renderFocus(d) {
@@ -278,7 +350,7 @@ function renderFocus(d) {
     document.getElementById('focus-grid').innerHTML = `
         <div class="mini-card"><strong>${d.roadmap.day}</strong><span>Current roadmap day</span></div>
         <div class="mini-card"><strong>${d.stats.attempted_problems}</strong><span>Attempted problems</span></div>
-        <div class="mini-card"><strong>${d.user.hardcore_rating || 1200}</strong><span>Hardcore rating</span></div>
+        <div class="mini-card"><strong>${d.user.contest_rating || 1200}</strong><span>Contest rating</span></div>
         <div class="mini-card"><strong style="font-size:1rem;line-height:1.25">${escHtml(weak)}</strong><span>Weak topic</span></div>`;
 }
 

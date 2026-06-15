@@ -18,10 +18,13 @@ require_once '../../includes/session.php';
 require_once '../../includes/response.php';
 require_once '../../includes/judge.php';
 require_once '../../includes/rate_limit.php';
+require_once '../../includes/contest.php';
+require_once '../../includes/leaderboard.php';
 
 methodCheck('POST');
 requireLogin();
 if (isAdmin()) err('Admins cannot submit solutions', 403);
+syncContestStatuses($pdo);
 
 $body       = jsonBody();
 $problemId  = (int) ($body['problem_id'] ?? 0);
@@ -29,6 +32,8 @@ $code       = $body['code']      ?? '';
 $language   = cleanString($body['language'] ?? 'javascript', 30);
 $contestId  = !empty($body['contest_id'])  ? (int) $body['contest_id']  : null;
 $isPractice = !empty($body['is_practice']) ? true : false;
+$solveMode  = cleanString($body['solve_mode'] ?? 'hardcore', 20);
+if (!in_array($solveMode, ['hardcore', 'practice'], true)) $solveMode = 'hardcore';
 
 if (!$problemId || !$code || !$language) err('problem_id, code and language are required');
 if (!is_string($code)) err('code must be a string');
@@ -125,6 +130,10 @@ $ins->execute([
 ]);
 $submissionId = (int) $pdo->lastInsertId();
 
+if ($contestId === null && !$isPractice) {
+    recordPracticeLeaderboardSubmission($pdo, $userId, $problemId, $verdict, $language);
+}
+
 // ── Update problem counters ──────────────────────────────────
 $pdo->prepare('UPDATE problems SET total_submissions = total_submissions + 1 WHERE id = ? AND COALESCE(is_deleted, 0) = 0')
     ->execute([$problemId]);
@@ -135,9 +144,9 @@ if ($verdict === 'Accepted') {
 
 // ── Post-accept logic (rating + roadmap) ─────────────────────
 // Practice submissions NEVER update ratings, roadmap, or leaderboard.
-$ratingDeltas = ['hardcore' => 0, 'learning' => 0];
+$ratingDeltas = ['skill' => 0, 'mode' => null, 'hardcore' => 0, 'learning' => 0];
 
-if ($verdict === 'Accepted' && !$isPractice) {
+if ($verdict === 'Accepted' && !$isPractice && $contestId === null) {
     // Check if this is the FIRST accepted submission for this problem by this user
     // (exclude practice submissions from the "first accept" check)
     $firstAccept = $pdo->prepare(
@@ -149,7 +158,7 @@ if ($verdict === 'Accepted' && !$isPractice) {
     $isFirstAccept = ($firstAccept->fetchColumn() == 0);
 
     if ($isFirstAccept) {
-        $ratingDeltas = updateRatings($pdo, $userId, $problem, $hintsUsed);
+        $ratingDeltas = updateRatings($pdo, $userId, $problem, $hintsUsed, $solveMode);
         checkRoadmapUnlock($pdo, $userId, $problem);
     }
 
@@ -191,17 +200,9 @@ ok([
  *   Base delta:  Easy=10, Medium=20, Hard=35
  *   Penalty:     -2 per prior WA (this problem), min 1
  */
-function updateRatings(PDO $pdo, int $userId, array $problem, int $hintsUsed): array {
+function updateRatings(PDO $pdo, int $userId, array $problem, int $hintsUsed, string $solveMode = 'hardcore'): array {
     $diff = $problem['difficulty'];
 
-    // Base deltas by difficulty
-    $learningBase  = ['Easy' => 15, 'Medium' => 25, 'Hard' => 40][$diff]  ?? 15;
-    $hardcoreBase  = ['Easy' => 10, 'Medium' => 20, 'Hard' => 35][$diff]  ?? 10;
-
-    // Learning multiplier from hints
-    $hintMult = max(0.25, 1.0 - $hintsUsed * 0.25);
-
-    // WA count for this problem by this user (before this submission)
     $waStmt = $pdo->prepare(
         'SELECT COUNT(*) FROM submissions
          WHERE user_id = ? AND problem_id = ? AND status = "Wrong Answer"'
@@ -209,39 +210,43 @@ function updateRatings(PDO $pdo, int $userId, array $problem, int $hintsUsed): a
     $waStmt->execute([$userId, $problem['id']]);
     $waCount = (int) $waStmt->fetchColumn();
 
-    $learningDelta = (int) round($learningBase * $hintMult);
-    $hardcoreDelta = 0;
-
-    if ($hintsUsed === 0) {
-        $hardcoreDelta = max(1, $hardcoreBase - $waCount * 2);
-    }
-
-    // Load current ratings
-    $rRow = $pdo->prepare('SELECT learning_rating, hardcore_rating FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
+    $rRow = $pdo->prepare('SELECT skill_rating FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
     $rRow->execute([$userId]);
     $ratings = $rRow->fetch();
+    if (!$ratings) return ['skill' => 0, 'mode' => null, 'hardcore' => 0, 'learning' => 0];
 
-    $oldLearning  = (int) $ratings['learning_rating'];
-    $oldHardcore  = (int) $ratings['hardcore_rating'];
-    $newLearning  = $oldLearning + $learningDelta;
-    $newHardcore  = $oldHardcore + $hardcoreDelta;
+    $mode = $solveMode === 'practice' ? 'practice' : 'hardcore';
 
-    // Apply
-    $pdo->prepare('UPDATE users SET learning_rating = ?, hardcore_rating = ? WHERE id = ?')
-        ->execute([$newLearning, $newHardcore, $userId]);
+    if ($mode === 'hardcore') {
+        $base = ['Easy' => 18, 'Medium' => 32, 'Hard' => 50][$diff] ?? 18;
+        $delta = max(1, $base - ($hintsUsed * 10) - ($waCount * 3));
+    } else {
+        $base = ['Easy' => 9, 'Medium' => 16, 'Hard' => 28][$diff] ?? 9;
+        $delta = max(1, $base - ($hintsUsed * 3) - $waCount);
+    }
 
-    // Record history
+    $oldSkill = (int) ($ratings['skill_rating'] ?? 1200);
+    $newSkill = max(800, $oldSkill + $delta);
+
+    $pdo->prepare('UPDATE users SET skill_rating = ? WHERE id = ?')
+        ->execute([$newSkill, $userId]);
+
     $hist = $pdo->prepare(
         'INSERT INTO rating_history
             (user_id, problem_id, rating_type, old_rating, new_rating, delta)
          VALUES (?, ?, ?, ?, ?, ?)'
     );
-    $hist->execute([$userId, $problem['id'], 'learning',  $oldLearning,  $newLearning,  $learningDelta]);
-    if ($hardcoreDelta > 0) {
-        $hist->execute([$userId, $problem['id'], 'hardcore', $oldHardcore, $newHardcore, $hardcoreDelta]);
+    if ($delta !== 0) {
+        $historyType = $mode === 'practice' ? 'learning' : 'hardcore';
+        $hist->execute([$userId, $problem['id'], $historyType, $oldSkill, $newSkill, $delta]);
     }
 
-    return ['hardcore' => $hardcoreDelta, 'learning' => $learningDelta];
+    return [
+        'skill' => $delta,
+        'mode' => $mode,
+        'hardcore' => $mode === 'hardcore' ? $delta : 0,
+        'learning' => $mode === 'practice' ? $delta : 0,
+    ];
 }
 
 // ── Roadmap unlock ────────────────────────────────────────────

@@ -4,11 +4,13 @@
 // ============================================================
 require_once 'includes/session.php';
 require_once 'config/db.php';
+require_once 'includes/contest.php';
 
 $slug            = trim($_GET['slug'] ?? '');
 $practiceContest = (int) ($_GET['practice_contest'] ?? 0); // set when arriving from practice mode
 $contestId       = (int) ($_GET['contest_id'] ?? 0); // set when arriving from live/regular contest
 if (!$slug) { header('Location: /code-arena/problems.php'); exit; }
+syncContestStatuses($pdo);
 
 $stmt = $pdo->prepare(
     'SELECT id, title, slug, difficulty, description, examples, constraints,
@@ -21,10 +23,27 @@ $problem = $stmt->fetch();
 if (!$problem) { header('Location: /code-arena/problems.php'); exit; }
 
 $userId = currentUserId();
+
+if ($contestId) {
+    if (!$userId) { header('Location: /code-arena/login.php'); exit; }
+    $accessStmt = $pdo->prepare(
+        'SELECT c.id, c.status
+         FROM contests c
+         JOIN contest_problems cp ON cp.contest_id = c.id AND cp.problem_id = ?
+         JOIN contest_participants part ON part.contest_id = c.id AND part.user_id = ?
+         WHERE c.id = ?'
+    );
+    $accessStmt->execute([$problem['id'], $userId, $contestId]);
+    $contestAccess = $accessStmt->fetch();
+    if (!$contestAccess || $contestAccess['status'] !== 'active') {
+        header('Location: /code-arena/contest.php?id=' . $contestId);
+        exit;
+    }
+}
+
 $hasHint1 = !empty($problem['hint_tier1']);
 $hasHint2 = !empty($problem['hint_tier2']);
 $hasHint3 = !empty($problem['hint_tier3']);
-
 $diffClass = ['Easy'=>'badge-easy','Medium'=>'badge-medium','Hard'=>'badge-hard'][$problem['difficulty']] ?? '';
 $accRate = $problem['total_submissions'] > 0
     ? round($problem['total_accepted'] / $problem['total_submissions'] * 100) : 0;
@@ -92,6 +111,28 @@ $relatedDiscussions = $discStmt->fetchAll();
         .problem-header h2 { font-size: 1.1rem; margin-bottom: 6px; }
         .problem-meta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
         .problem-meta span { font-size:.8rem; color:var(--text-muted); }
+        .mode-menu { position:relative; display:inline-flex; align-items:center; margin-left:2px; }
+        .mode-trigger {
+            border:0; background:transparent; padding:0; color:var(--text-muted);
+            font-size:.8rem; cursor:pointer; transition:color .18s ease;
+        }
+        .mode-trigger:hover, .mode-trigger.open { color:var(--accent); }
+        .mode-dropdown {
+            position:absolute; top:calc(100% + 8px); left:0; min-width:132px; z-index:12;
+            padding:6px; border:1px solid var(--border); border-radius:var(--radius-sm);
+            background:var(--bg-card); box-shadow:0 16px 36px rgba(0,0,0,.28);
+            opacity:0; transform:translateY(-4px); pointer-events:none;
+            transition:opacity .16s ease, transform .16s ease;
+        }
+        .mode-dropdown.open { opacity:1; transform:translateY(0); pointer-events:auto; }
+        .mode-option {
+            display:block; width:100%; border:0; background:transparent; text-align:left;
+            padding:8px 9px; border-radius:var(--radius-sm); color:var(--text-dim);
+            font-size:.8rem; cursor:pointer; transition:background .16s ease, color .16s ease;
+        }
+        .mode-option:hover, .mode-option.active {
+            background:rgba(0,232,122,.08); color:var(--accent);
+        }
         .problem-body { padding: 24px; flex: 1; }
         .section-title { font-size:.8rem; font-weight:600; color:var(--text-muted);
                          text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; margin-top:24px; }
@@ -226,6 +267,14 @@ $relatedDiscussions = $discStmt->fetchAll();
                 <?php if ($problem['time_limit_ms']): ?>
                 <span>⏱ <?= $problem['time_limit_ms'] ?>ms</span>
                 <?php endif; ?>
+                <div class="mode-menu" aria-label="Solve mode selector">
+                    <button type="button" class="mode-trigger" id="mode-trigger" onclick="toggleModeDropdown(event)">Mode: <span>(optional)</span></button>
+                    <div class="mode-dropdown" id="mode-dropdown">
+                        <button type="button" class="mode-option" data-solve-mode="hardcore" onclick="selectProblemMode('hardcore')">Hardcore 🔥</button>
+                        <button type="button" class="mode-option" data-solve-mode="practice" onclick="selectProblemMode('practice')">Practice 📘</button>
+                    </div>
+                    <input type="hidden" id="solve-mode-input" value="hardcore">
+                </div>
             </div>
         </div>
 
@@ -361,8 +410,8 @@ $relatedDiscussions = $discStmt->fetchAll();
                 <option value="typescript">TypeScript</option>
             </select>
             <div class="rating-preview" id="rating-preview">
-                <span>Hardcore <span class="rp-val rp-hc" id="rp-hc">+10</span></span>
-                <span>Learning <span class="rp-val rp-lr" id="rp-lr">+25</span></span>
+                <span>Skill <span class="rp-val rp-lr" id="rp-skill">+0</span></span>
+                <span id="rp-mode">Hardcore mode</span>
             </div>
             <div class="editor-actions">
                 <button class="btn-outline" id="run-btn" onclick="runCode()">▶ Run</button>
@@ -404,13 +453,59 @@ $relatedDiscussions = $discStmt->fetchAll();
 <script>
 const PROBLEM_ID       = <?= (int) $problem['id'] ?>;
 const DIFFICULTY       = '<?= $problem['difficulty'] ?>';
-const BASE_DELTAS      = { Easy:{hc:10,lr:15}, Medium:{hc:20,lr:25}, Hard:{hc:35,lr:40} };
+const BASE_DELTAS      = {
+    hardcore: { Easy:18, Medium:32, Hard:50 },
+    practice: { Easy:9, Medium:16, Hard:28 },
+};
 const CONTEST_ID       = <?= $contestId ?: 'null' ?>;
 const PRACTICE_CONTEST = <?= $practiceContest ?: 'null' ?>; // non-null when in practice mode
 
 let editor;
 let hintsUsed = 0;
 const hintContent = {};
+
+function getProblemMode() {
+    const storedMode = localStorage.getItem('problem_mode');
+    if (storedMode === null) {
+        localStorage.setItem('problem_mode', 'hardcore');
+        return 'hardcore';
+    }
+    return storedMode === 'practice' ? 'practice' : 'hardcore';
+}
+
+function renderProblemMode() {
+    const currentMode = getProblemMode();
+    const input = document.getElementById('solve-mode-input');
+    if (input) input.value = currentMode;
+    document.querySelectorAll('[data-solve-mode]').forEach(option => {
+        option.classList.toggle('active', option.dataset.solveMode === currentMode);
+    });
+}
+
+function closeModeDropdown() {
+    document.getElementById('mode-trigger')?.classList.remove('open');
+    document.getElementById('mode-dropdown')?.classList.remove('open');
+}
+
+function toggleModeDropdown(event) {
+    event.stopPropagation();
+    const trigger = document.getElementById('mode-trigger');
+    const dropdown = document.getElementById('mode-dropdown');
+    const isOpen = dropdown?.classList.contains('open');
+    trigger?.classList.toggle('open', !isOpen);
+    dropdown?.classList.toggle('open', !isOpen);
+}
+
+function selectProblemMode(mode) {
+    const nextMode = mode === 'practice' ? 'practice' : 'hardcore';
+    localStorage.setItem('problem_mode', nextMode);
+    renderProblemMode();
+    updateRatingPreview();
+    closeModeDropdown();
+}
+
+renderProblemMode();
+document.addEventListener('click', closeModeDropdown);
 
 async function toggleBookmark() {
     const btn = document.getElementById('bookmark-btn');
@@ -490,11 +585,14 @@ function changeLanguage() {
 }
 
 function updateRatingPreview() {
-    const d = BASE_DELTAS[DIFFICULTY];
-    if (!d) return;
-    const mult = Math.max(0.25, 1 - hintsUsed * 0.25);
-    document.getElementById('rp-hc').textContent = hintsUsed > 0 ? '+0' : `+${d.hc}`;
-    document.getElementById('rp-lr').textContent = `+${Math.round(d.lr * mult)}`;
+    const mode = getProblemMode();
+    const base = BASE_DELTAS[mode]?.[DIFFICULTY] || 0;
+    const hintPenalty = mode === 'practice' ? 3 : 10;
+    const delta = Math.max(1, base - (hintsUsed * hintPenalty));
+    document.getElementById('rp-skill').textContent = `+${delta}`;
+    document.getElementById('rp-mode').textContent = mode === 'hardcore'
+        ? 'Hardcore mode'
+        : 'Practice mode';
 }
 
 // ── Hints ────────────────────────────────────────────────────
@@ -603,7 +701,13 @@ async function submitCode() {
     btn.innerHTML = '<span class="spinner"></span> Judging…';
     setResultStatus('Judging…', 'info');
 
-    const submitPayload = { problem_id: PROBLEM_ID, code, language, hints_used: hintsUsed };
+    const submitPayload = {
+        problem_id: PROBLEM_ID,
+        code,
+        language,
+        hints_used: hintsUsed,
+        solve_mode: getProblemMode(),
+    };
     if (PRACTICE_CONTEST) {
         submitPayload.contest_id  = PRACTICE_CONTEST;
         submitPayload.is_practice = true;
@@ -645,12 +749,13 @@ function renderVerdict(r) {
         ${r.runtime_ms ? ` — ${r.runtime_ms}ms` : ''}
     </div>`;
 
-    if (isAC && (r.rating_delta?.hardcore > 0 || r.rating_delta?.learning > 0)) {
+    if (isAC && Number(r.rating_delta?.skill || 0) > 0) {
+        const modeLabel = r.rating_delta.mode === 'learning' ? 'Learning' : 'Hardcore';
         html += `<div style="padding:10px 0;font-size:.85rem;color:var(--text-muted)">
-            Rating: <span style="color:var(--red)">HC +${r.rating_delta.hardcore}</span>
-                    <span style="color:var(--blue);margin-left:8px">LR +${r.rating_delta.learning}</span>
+            Skill Rating: <span style="color:var(--accent)">+${r.rating_delta.skill}</span>
+            <span style="margin-left:8px">${modeLabel}</span>
         </div>`;
-        toast(`Accepted! HC +${r.rating_delta.hardcore} / LR +${r.rating_delta.learning}`, 'success', 5000);
+        toast(`Accepted! Skill +${r.rating_delta.skill}`, 'success', 5000);
     } else if (isAC) {
         toast('Accepted! (Already solved — no rating change)', 'success');
     } else {

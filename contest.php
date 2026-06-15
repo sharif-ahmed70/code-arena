@@ -4,9 +4,11 @@
 // ============================================================
 require_once 'includes/session.php';
 require_once 'config/db.php';
+require_once 'includes/contest.php';
 
 $id = (int) ($_GET['id'] ?? 0);
 if (!$id) { header('Location: /code-arena/contests.php'); exit; }
+syncContestStatuses($pdo);
 
 $stmt = $pdo->prepare(
     'SELECT c.*, u.username AS author
@@ -16,17 +18,6 @@ $stmt = $pdo->prepare(
 $stmt->execute([$id]);
 $contest = $stmt->fetch();
 if (!$contest) { header('Location: /code-arena/contests.php'); exit; }
-
-// Sync status
-$now = new DateTime();
-if ($contest['status'] === 'upcoming' && new DateTime($contest['start_time']) <= $now) {
-    $pdo->prepare("UPDATE contests SET status='active' WHERE id=?")->execute([$id]);
-    $contest['status'] = 'active';
-}
-if ($contest['status'] === 'active' && new DateTime($contest['end_time']) <= $now) {
-    $pdo->prepare("UPDATE contests SET status='ended' WHERE id=?")->execute([$id]);
-    $contest['status'] = 'ended';
-}
 
 // Problems
 $pStmt = $pdo->prepare(
@@ -301,7 +292,7 @@ if (isset($_GET['practice']) && $contest['status'] !== 'ended') {
                             <a href="/code-arena/problem.php?slug=<?= htmlspecialchars($p['slug']) ?>&practice_contest=<?= $id ?>">
                                 <?= htmlspecialchars($p['title']) ?>
                             </a>
-                        <?php elseif ($contest['status'] !== 'upcoming'): ?>
+                        <?php elseif ($contest['status'] === 'active' && $registered): ?>
                             <a href="/code-arena/problem.php?slug=<?= htmlspecialchars($p['slug']) ?>&contest_id=<?= $id ?>">
                                 <?= htmlspecialchars($p['title']) ?>
                             </a>
@@ -394,8 +385,8 @@ if (isset($_GET['practice']) && $contest['status'] !== 'ended') {
                 <?php elseif ($registered): ?>
                     <div class="already-registered">✓ You are registered</div>
                     <?php if ($contest['status'] === 'active'): ?>
-                    <a href="/code-arena/problems.php" class="btn-primary register-btn" style="margin-top:12px">
-                        Go to Problems
+                    <a href="#scoreboard-wrap" class="btn-primary register-btn" style="margin-top:12px">
+                        Enter Contest
                     </a>
                     <?php endif; ?>
                 <?php else: ?>

@@ -8,8 +8,10 @@
 require_once '../../config/db.php';
 require_once '../../includes/session.php';
 require_once '../../includes/response.php';
+require_once '../../includes/contest.php';
 
 requireInstructor();
+syncContestStatuses($pdo);
 
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = currentUserId();
@@ -78,9 +80,10 @@ if ($action === 'update_contest') {
     $start = trim($body['start_time'] ?? '');
     $end = trim($body['end_time'] ?? '');
     if (!$title || !$start || !$end) err('title, start_time and end_time are required');
+    [$start, $end, $status] = validateContestWindow($start, $end);
 
     $pdo->prepare(
-        'UPDATE contests SET title = ?, description = ?, start_time = ?, end_time = ?, is_rated = ?
+        'UPDATE contests SET title = ?, description = ?, start_time = ?, end_time = ?, is_rated = ?, status = ?
          WHERE id = ?'
     )->execute([
         $title,
@@ -88,6 +91,7 @@ if ($action === 'update_contest') {
         $start,
         $end,
         isset($body['is_rated']) ? (int)(bool)$body['is_rated'] : 1,
+        $status,
         $contestId,
     ]);
     ok(null, 'Contest updated');

@@ -55,6 +55,9 @@ if ($method === 'GET') {
 
     $listSt = $pdo->prepare(
         "SELECT id, username, email, role, COALESCE(is_blocked, 0) AS is_blocked,
+                COALESCE(skill_rating, hardcore_rating, 1200) AS skill_rating,
+                COALESCE(skill_mode, 'hardcore') AS skill_mode,
+                COALESCE(contest_rating, 1200) AS contest_rating,
                 hardcore_rating, learning_rating, created_at
          FROM users $whereSQL ORDER BY id DESC LIMIT $perPage OFFSET $offset"
     );

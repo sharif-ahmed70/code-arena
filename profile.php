@@ -39,9 +39,29 @@ $isSelf = isLoggedIn() && (currentUsername() === $username);
         .rating-label { font-size:.75rem; font-weight:600; text-transform:uppercase;
                         letter-spacing:.06em; color:var(--text-muted); margin-bottom:8px; }
         .rating-value { font-family:'Syne',sans-serif; font-size:2.8rem; font-weight:800; line-height:1; }
-        .hc-value { color:var(--red); }
-        .lr-value { color:var(--blue); }
+        .skill-value { color:var(--accent); }
+        .contest-value { color:var(--yellow); }
         .rating-sub { font-size:.8rem; color:var(--text-muted); margin-top:6px; }
+        .skill-mode-toggle {
+            position:relative; display:grid; grid-template-columns:1fr 1fr; gap:0;
+            margin-top:16px; padding:4px; border:1px solid var(--border);
+            border-radius:999px; background:var(--bg-card2); overflow:hidden;
+        }
+        .skill-mode-toggle::before {
+            content:""; position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px);
+            border-radius:999px; background:linear-gradient(135deg, rgba(255,83,83,.9), rgba(255,209,102,.9));
+            transition:transform .24s ease, background .24s ease;
+        }
+        .skill-mode-toggle.learning::before {
+            transform:translateX(100%);
+            background:linear-gradient(135deg, rgba(78,161,255,.9), rgba(0,232,122,.85));
+        }
+        .skill-mode-toggle button {
+            position:relative; z-index:1; min-height:34px; border:0; background:transparent;
+            color:var(--text-muted); font-weight:700; cursor:pointer; border-radius:999px;
+            transition:color .2s ease;
+        }
+        .skill-mode-toggle button.active { color:#0a0a0f; }
 
         .diff-bar { display:flex; gap:12px; align-items:center; margin-bottom:8px; }
         .diff-bar .label { width:60px; font-size:.85rem; color:var(--text-dim); }
@@ -69,7 +89,7 @@ $isSelf = isLoggedIn() && (currentUsername() === $username);
         .rh-delta-neg { color:var(--red);   font-weight:600; }
 
         .two-col { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-        @media(max-width:700px) { .two-col { grid-template-columns:1fr; } }
+        @media(max-width:700px) { .two-col, .ratings-row { grid-template-columns:1fr; } }
 
         .weak-areas-grid { display:flex; flex-direction:column; gap:10px; }
         .weak-row { display:grid; grid-template-columns:140px 1fr 56px 72px; gap:12px;
@@ -123,14 +143,18 @@ $isSelf = isLoggedIn() && (currentUsername() === $username);
 
     <div class="ratings-row fade-up fade-up-1">
         <div class="rating-card">
-            <div class="rating-label">Hardcore Rating</div>
-            <div class="rating-value hc-value" id="hc-rating">—</div>
-            <div class="rating-sub">Solved without hints</div>
+            <div class="rating-label">Skill Rating</div>
+            <div class="rating-value skill-value" id="skill-rating">—</div>
+            <div class="rating-sub" id="skill-mode-copy">Hardcore mode active</div>
+            <div class="skill-mode-toggle" id="skill-mode-toggle" aria-label="Skill mode">
+                <button type="button" data-skill-mode="hardcore" onclick="setSkillMode('hardcore')">Hardcore</button>
+                <button type="button" data-skill-mode="learning" onclick="setSkillMode('learning')">Learning</button>
+            </div>
         </div>
         <div class="rating-card">
-            <div class="rating-label">Learning Rating</div>
-            <div class="rating-value lr-value" id="lr-rating">—</div>
-            <div class="rating-sub">All accepted submissions</div>
+            <div class="rating-label">Contest Rating</div>
+            <div class="rating-value contest-value" id="contest-rating">—</div>
+            <div class="rating-sub">Updated after finalized contests</div>
         </div>
     </div>
 
@@ -184,6 +208,8 @@ $isSelf = isLoggedIn() && (currentUsername() === $username);
 <script>
 const USERNAME = '<?= addslashes($username) ?>';
 const PROFILE_ID = <?= $profileId ?: 'null' ?>;
+const CURRENT_USERNAME = '<?= addslashes(isLoggedIn() ? currentUsername() : '') ?>';
+let currentSkillMode = 'hardcore';
 
 async function loadProfile() {
     const profileUrl = PROFILE_ID
@@ -201,8 +227,9 @@ async function loadProfile() {
         <p style="color:var(--text-muted)">${user.role} · Joined ${new Date(user.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long'})}</p>`;
 
     // Ratings
-    document.getElementById('hc-rating').textContent = user.hardcore_rating ?? 1200;
-    document.getElementById('lr-rating').textContent = user.learning_rating ?? 1200;
+    document.getElementById('skill-rating').textContent = user.skill_rating ?? user.hardcore_rating ?? 1200;
+    document.getElementById('contest-rating').textContent = user.contest_rating ?? 1200;
+    renderSkillMode(user.skill_mode || 'hardcore', user.username === CURRENT_USERNAME);
 
     // Stats
     const accepted = Number(stats.accepted || 0);
@@ -277,6 +304,36 @@ async function loadProfile() {
             </div>`;
         }).join('');
     }
+}
+
+function renderSkillMode(mode, canEdit) {
+    currentSkillMode = mode === 'learning' ? 'learning' : 'hardcore';
+    const toggle = document.getElementById('skill-mode-toggle');
+    toggle.classList.toggle('learning', currentSkillMode === 'learning');
+    toggle.querySelectorAll('button').forEach(btn => {
+        const active = btn.dataset.skillMode === currentSkillMode;
+        btn.classList.toggle('active', active);
+        btn.disabled = !canEdit;
+    });
+    document.getElementById('skill-mode-copy').textContent = currentSkillMode === 'hardcore'
+        ? 'Hardcore mode: no hints, higher impact'
+        : 'Learning mode: hints allowed, smaller impact';
+}
+
+async function setSkillMode(mode) {
+    if (mode === currentSkillMode) return;
+    const prev = currentSkillMode;
+    renderSkillMode(mode, true);
+    const { ok, data } = await api('/code-arena/api/users/skill_mode.php', {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+    });
+    if (!ok || !data.success) {
+        renderSkillMode(prev, true);
+        toast(data.message || 'Failed to update skill mode', 'error');
+        return;
+    }
+    toast(mode === 'hardcore' ? 'Hardcore mode enabled' : 'Learning mode enabled', 'success');
 }
 
 function renderActivity(activity) {
