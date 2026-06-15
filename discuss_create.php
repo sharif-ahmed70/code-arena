@@ -17,7 +17,7 @@ if ($problemId) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Post — Discuss — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .create-wrap { max-width:720px; margin:0 auto; }
         .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted);
@@ -127,7 +127,7 @@ if ($problemId) {
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const IS_ADMIN = <?= $isAdmin ? 'true' : 'false' ?>;
 const LINKED_PROBLEM_ID = <?= $linkedProblem ? (int)$linkedProblem['id'] : 'null' ?>;

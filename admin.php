@@ -15,7 +15,7 @@ $currentAdmin = currentUsername() ?? 'admin';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Admin - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         body { background:var(--bg); }
         .admin-shell { min-height:100vh; display:grid; grid-template-columns:270px minmax(0,1fr); }
@@ -69,6 +69,11 @@ $currentAdmin = currentUsername() ?? 'admin';
         .toolbar input, .toolbar select { min-width:180px; }
         .table-wrap table a { color:var(--text); font-weight:650; }
         .table-wrap table a:hover { color:var(--accent); }
+        .admin-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+        .btn-sm { padding:6px 10px; font-size:.78rem; min-height:30px; }
+        .btn-danger.btn-sm { padding:6px 10px; }
+        button:disabled { opacity:.45; cursor:not-allowed; }
+        select:disabled { opacity:.72; cursor:not-allowed; }
         .role-select, .mini-select {
             padding:6px 8px; background:var(--bg-card2); border:1px solid var(--border);
             border-radius:var(--radius-sm); color:var(--text); font-size:.82rem;
@@ -112,6 +117,7 @@ $currentAdmin = currentUsername() ?? 'admin';
             <button class="active" data-section="overview" onclick="showSection('overview')">Dashboard Overview</button>
             <button data-section="users" onclick="showSection('users')">User Management</button>
             <button data-section="organizations" onclick="showSection('organizations')">Organization Management</button>
+            <button data-section="announcements" onclick="showSection('announcements')">Announcements</button>
             <button data-section="contests" onclick="showSection('contests')">Contest Management</button>
             <button data-section="problems" onclick="showSection('problems')">Problem Management</button>
             <button data-section="analytics" onclick="showSection('analytics')">Analytics Dashboard</button>
@@ -161,7 +167,40 @@ $currentAdmin = currentUsername() ?? 'admin';
             <section class="admin-section" id="section-organizations">
                 <div class="section-head"><div><h1>Organization Management</h1><p>Monitor organization workspaces, owners, members, and hosted contests.</p></div></div>
                 <div class="toolbar"><input id="org-search" class="form-input" placeholder="Search organizations" oninput="debounce(loadOrganizations,350)()"></div>
-                <div class="table-wrap"><table><thead><tr><th>ID</th><th>Organization</th><th>Type</th><th>Owner</th><th>Members</th><th>Contests</th><th>Created</th></tr></thead><tbody id="orgs-body"></tbody></table></div>
+                <div class="table-wrap"><table><thead><tr><th>ID</th><th>Organization</th><th>Type</th><th>Owner</th><th>Members</th><th>Contests</th><th>Created</th><th>Actions</th></tr></thead><tbody id="orgs-body"></tbody></table></div>
+            </section>
+
+            <section class="admin-section" id="section-announcements">
+                <div class="section-head"><div><h1>Announcements</h1><p>Create global, organization, and contest-scoped announcements.</p></div></div>
+                <div class="panel-grid">
+                    <section class="panel-card">
+                        <div class="panel-title"><h2>Create Announcement</h2></div>
+                        <div class="form-group"><label class="form-label">Title</label><input id="ann-title" class="form-input" maxlength="180"></div>
+                        <div class="form-group"><label class="form-label">Message</label><textarea id="ann-message" class="form-input" rows="6"></textarea></div>
+                        <div class="toolbar">
+                            <select id="ann-target-type" class="form-input" onchange="syncAnnouncementTargetFields()">
+                                <option value="global">All Users</option>
+                                <option value="org">Specific Organization</option>
+                                <option value="contest">Specific Contest</option>
+                            </select>
+                            <select id="ann-org-id" class="form-input" disabled><option value="">Select organization</option></select>
+                            <input id="ann-contest-id" class="form-input" type="number" min="1" placeholder="Contest ID" disabled>
+                        </div>
+                        <button class="btn-primary" onclick="createAdminAnnouncement()">Publish Announcement</button>
+                    </section>
+                    <section class="panel-card">
+                        <div class="panel-title"><h2>Published Announcements</h2><button class="btn-outline btn-sm" onclick="loadAdminAnnouncements()">Refresh</button></div>
+                        <div class="toolbar">
+                            <select id="ann-filter" class="form-input" onchange="loadAdminAnnouncements()">
+                                <option value="">All targets</option>
+                                <option value="global">Global</option>
+                                <option value="org">Organization</option>
+                                <option value="contest">Contest</option>
+                            </select>
+                        </div>
+                        <div class="stack-list" id="admin-announcements-list"><div class="list-item">Loading...</div></div>
+                    </section>
+                </div>
             </section>
 
             <section class="admin-section" id="section-contests">
@@ -196,7 +235,7 @@ $currentAdmin = currentUsername() ?? 'admin';
             <section class="admin-section" id="section-submissions">
                 <div class="section-head"><div><h1>Submissions Monitor</h1><p>Filter submissions and spot abnormal activity patterns.</p></div></div>
                 <div class="toolbar">
-                    <input id="sub-user" class="form-input" placeholder="User/email" oninput="debounce(loadSubmissions,350)()">
+                    <input id="sub-user" class="form-input" placeholder="User or account" autocomplete="off" spellcheck="false" oninput="debounce(loadSubmissions,350)()">
                     <input id="sub-problem" class="form-input" placeholder="Problem" oninput="debounce(loadSubmissions,350)()">
                     <select id="sub-status" class="form-input" onchange="loadSubmissions()"><option value="">All statuses</option><option>Accepted</option><option>Wrong Answer</option><option>Runtime Error</option><option>Time Limit Exceeded</option><option>Compilation Error</option></select>
                 </div>
@@ -220,7 +259,7 @@ $currentAdmin = currentUsername() ?? 'admin';
     </main>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const CURRENT_ADMIN_ID = <?= json_encode($currentAdminId) ?>;
 const loadedSections = new Set();
@@ -230,7 +269,7 @@ function showSection(name) {
     document.querySelectorAll('.admin-nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.section === name));
     document.getElementById(`section-${name}`).classList.add('active');
     if (!loadedSections.has(name)) {
-        ({ overview: loadOverview, users: loadUsers, organizations: loadOrganizations, contests: loadContests,
+        ({ overview: loadOverview, users: loadUsers, organizations: loadOrganizations, announcements: loadAdminAnnouncements, contests: loadContests,
            problems: loadProblems, analytics: loadAnalytics, submissions: loadSubmissions, logs: loadLogs,
            settings: loadOverview }[name] || (() => {}))();
         loadedSections.add(name);
@@ -291,7 +330,10 @@ async function loadUsers() {
             <td><select class="role-select" onchange="updateRole(${u.id},this.value)" ${isSelf || isLastAdmin ? 'disabled' : ''}>${['student','user','instructor','org_admin','admin'].map(r => `<option ${u.role===r?'selected':''}>${r}</option>`).join('')}</select></td>
             <td>${Number(u.is_blocked) ? '<span style="color:var(--red)">Blocked</span>' : '<span style="color:var(--accent)">Active</span>'}</td>
             <td>${u.skill_rating || 1200}</td><td>${u.contest_rating || 1200}</td><td>${timeAgo(u.created_at)}</td>
-            <td>${Number(u.is_blocked) ? `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id},false)" ${isSelf?'disabled':''}>Unban</button>` : `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id},true)" ${isSelf?'disabled':''}>Ban</button>`}</td>
+            <td><div class="admin-actions">
+                ${Number(u.is_blocked) ? `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id},false)" ${isSelf?'disabled':''}>Unban</button>` : `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id},true)" ${isSelf?'disabled':''}>Ban</button>`}
+                <button class="btn-danger btn-sm" onclick="deleteUser(${u.id})" ${isSelf || isLastAdmin ? 'disabled' : ''}>Delete</button>
+            </div></td>
         </tr>`;
     }).join('');
 }
@@ -304,16 +346,104 @@ async function toggleBlock(id, block) {
     toast(data.message || 'Updated', ok ? 'success' : 'error');
     if (ok) loadUsers();
 }
+async function deleteUser(id) {
+    if (!confirm('Delete this user account? This soft-deletes and blocks the user.')) return;
+    const { ok, data } = await api('/code-arena/api/admin/users.php', { method:'DELETE', body:JSON.stringify({ id }) });
+    toast(data.message || 'Deleted', ok ? 'success' : 'error');
+    if (ok) loadUsers();
+}
 
 async function loadOrganizations() {
     const q = document.getElementById('org-search')?.value.trim() || '';
     const { ok, data } = await api(`/code-arena/api/admin/organizations.php?search=${encodeURIComponent(q)}`);
     const body = document.getElementById('orgs-body');
-    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="7">${safeText(data.message)}</td></tr>`; return; }
+    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="8">${safeText(data.message)}</td></tr>`; return; }
     body.innerHTML = (data.data.organizations || []).map(o => `<tr>
         <td>${o.id}</td><td>${safeText(o.name)}</td><td>${safeText(o.type)}</td><td>${safeText(o.owner_username)}<div style="color:var(--text-muted);font-size:.78rem">${safeText(o.owner_email)}</div></td>
         <td>${o.member_count || 0}</td><td>${o.contest_count || 0}</td><td>${timeAgo(o.created_at)}</td>
+        <td><div class="admin-actions">
+            <button class="btn-danger btn-sm" onclick="deleteOrganization(${o.id})">Delete</button>
+        </div></td>
     </tr>`).join('');
+}
+async function deleteOrganization(id) {
+    if (!confirm('Delete this organization? This soft-deletes the workspace and removes its public visibility.')) return;
+    const { ok, data } = await api('/code-arena/api/admin/organizations.php', { method:'DELETE', body:JSON.stringify({ id }) });
+    toast(data.message || 'Deleted', ok ? 'success' : 'error');
+    if (ok) loadOrganizations();
+}
+
+async function loadAnnouncementOrganizations() {
+    const select = document.getElementById('ann-org-id');
+    if (!select || select.dataset.loaded === '1') return;
+    const { ok, data } = await api('/code-arena/api/admin/organizations.php');
+    if (!ok || !data.success) return;
+    select.innerHTML = '<option value="">Select organization</option>' + (data.data.organizations || [])
+        .map(org => `<option value="${org.id}">${safeText(org.name)} (#${org.id})</option>`).join('');
+    select.dataset.loaded = '1';
+}
+
+function syncAnnouncementTargetFields() {
+    const target = document.getElementById('ann-target-type')?.value || 'global';
+    const orgSelect = document.getElementById('ann-org-id');
+    const contestInput = document.getElementById('ann-contest-id');
+    orgSelect.disabled = target === 'global';
+    contestInput.disabled = target !== 'contest';
+    if (target === 'global') {
+        orgSelect.value = '';
+        contestInput.value = '';
+    }
+    if (target === 'org') {
+        contestInput.value = '';
+    }
+}
+
+async function createAdminAnnouncement() {
+    const payload = {
+        title: document.getElementById('ann-title').value.trim(),
+        message: document.getElementById('ann-message').value.trim(),
+        target_type: document.getElementById('ann-target-type').value,
+        org_id: document.getElementById('ann-org-id').value || null,
+        contest_id: document.getElementById('ann-contest-id').value || null,
+        type: 'announcement',
+        is_published: true,
+    };
+    const { ok, data } = await api('/code-arena/api/admin/announcements.php', { method:'POST', body:JSON.stringify(payload) });
+    toast(data.message || 'Saved', ok ? 'success' : 'error');
+    if (ok) {
+        document.getElementById('ann-title').value = '';
+        document.getElementById('ann-message').value = '';
+        document.getElementById('ann-contest-id').value = '';
+        loadAdminAnnouncements();
+    }
+}
+
+async function loadAdminAnnouncements() {
+    await loadAnnouncementOrganizations();
+    syncAnnouncementTargetFields();
+    const target = document.getElementById('ann-filter')?.value || '';
+    const { ok, data } = await api(`/code-arena/api/admin/announcements.php?target_type=${encodeURIComponent(target)}`);
+    const list = document.getElementById('admin-announcements-list');
+    if (!list) return;
+    if (!ok || !data.success) { list.innerHTML = `<div class="list-item">${safeText(data.message)}</div>`; return; }
+    const rows = data.data.announcements || [];
+    list.innerHTML = rows.length ? rows.map(row => {
+        const scope = row.target_type === 'global' ? 'All users' : (row.target_type === 'contest' ? `Contest #${row.contest_id || '-'} ${row.contest_title ? '· ' + safeText(row.contest_title) : ''}` : `Org #${row.org_id || '-'} ${row.organization_name ? '· ' + safeText(row.organization_name) : ''}`);
+        return `<div class="list-item">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+                <div><strong>${safeText(row.title)}</strong><span>${scope} · ${timeAgo(row.created_at)}</span></div>
+                <button class="btn-danger btn-sm" onclick="deleteAdminAnnouncement(${row.id})">Delete</button>
+            </div>
+            <div style="margin-top:8px;color:var(--text-dim);white-space:pre-wrap">${safeText(row.message)}</div>
+        </div>`;
+    }).join('') : '<div class="list-item">No announcements yet.</div>';
+}
+
+async function deleteAdminAnnouncement(id) {
+    if (!confirm('Delete this announcement?')) return;
+    const { ok, data } = await api('/code-arena/api/admin/announcements.php', { method:'DELETE', body:JSON.stringify({ id }) });
+    toast(data.message || 'Deleted', ok ? 'success' : 'error');
+    if (ok) loadAdminAnnouncements();
 }
 
 async function loadContests() {
@@ -326,13 +456,23 @@ async function loadContests() {
         <td>${c.id}</td><td><a href="/code-arena/contest.php?id=${c.id}">${safeText(c.title)}</a></td><td>${safeText(c.status)}</td>
         <td>${safeText(c.creator_username)}</td><td>${c.participants || 0}</td><td>${c.submissions || 0}</td>
         <td>${safeText(c.start_time)}<div style="color:var(--text-muted);font-size:.78rem">${safeText(c.end_time)}</div></td>
-        <td><a class="btn-outline btn-sm" href="/code-arena/contest_manage.php?id=${c.id}">Manage</a> ${c.status !== 'ended' ? `<button class="btn-outline btn-sm" onclick="endContest(${c.id})">End</button>` : ''}</td>
+        <td><div class="admin-actions">
+            <a class="btn-outline btn-sm" href="/code-arena/contest_manage.php?id=${c.id}">Manage</a>
+            ${c.status !== 'ended' ? `<button class="btn-outline btn-sm" onclick="endContest(${c.id})">End</button>` : ''}
+            <button class="btn-danger btn-sm" onclick="deleteContest(${c.id})" ${c.status === 'active' ? 'disabled title="Live contests cannot be deleted"' : ''}>Delete</button>
+        </div></td>
     </tr>`).join('');
 }
 async function endContest(id) {
     if (!confirm('End this contest now?')) return;
     const { ok, data } = await api('/code-arena/api/admin/contests.php', { method:'PUT', body:JSON.stringify({ id, action:'end' }) });
     toast(data.message || 'Updated', ok ? 'success' : 'error');
+    if (ok) loadContests();
+}
+async function deleteContest(id) {
+    if (!confirm('Delete this contest? This removes the contest record and related contest mappings.')) return;
+    const { ok, data } = await api('/code-arena/api/admin/contests.php', { method:'DELETE', body:JSON.stringify({ id }) });
+    toast(data.message || 'Deleted', ok ? 'success' : 'error');
     if (ok) loadContests();
 }
 
@@ -343,8 +483,17 @@ async function loadProblems() {
     body.innerHTML = (data.data.problems || []).map(p => `<tr>
         <td>${p.id}</td><td><a href="/code-arena/problem.php?slug=${p.slug}">${safeText(p.title)}</a></td><td>${difficultyBadge(p.difficulty)}</td>
         <td>${p.total_submissions || 0}</td><td>${Number(p.is_public) ? 'Yes' : 'No'}</td>
-        <td><a class="btn-outline btn-sm" href="/code-arena/editorial_manage.php?problem_id=${p.id}">Editorial</a></td>
+        <td><div class="admin-actions">
+            <a class="btn-outline btn-sm" href="/code-arena/editorial_manage.php?problem_id=${p.id}">Editorial</a>
+            <button class="btn-danger btn-sm" onclick="deleteProblem(${p.id})">Delete</button>
+        </div></td>
     </tr>`).join('');
+}
+async function deleteProblem(id) {
+    if (!confirm('Delete this problem? This soft-deletes it and hides it from public problem lists.')) return;
+    const { ok, data } = await api('/code-arena/api/admin/problems.php', { method:'DELETE', body:JSON.stringify({ id }) });
+    toast(data.message || 'Deleted', ok ? 'success' : 'error');
+    if (ok) loadProblems();
 }
 
 async function loadAnalytics() {

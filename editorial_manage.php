@@ -14,7 +14,7 @@ if (!$problemId) { header('Location: /code-arena/instructor.php'); exit; }
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editorial Manager - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .editorial-layout { display:grid; grid-template-columns: 1fr 320px; gap:24px; align-items:start; }
         @media(max-width:900px){ .editorial-layout { grid-template-columns:1fr; } }
@@ -83,7 +83,7 @@ if (!$problemId) { header('Location: /code-arena/instructor.php'); exit; }
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const PROBLEM_ID = <?= $problemId ?>;
 let currentProblem = null;

@@ -12,7 +12,7 @@ $activeOrgPage = 'submissions';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contest Analytics - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .analytics-hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:20px}
         .analytics-hero p{color:var(--text-muted);margin-top:6px}
@@ -115,7 +115,7 @@ $activeOrgPage = 'submissions';
     </section>
 </div>
 <?php require_once '../includes/organization_shell_end.php'; ?>
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 let selectedContestId = null;
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}

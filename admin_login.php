@@ -14,7 +14,7 @@ if (isLoggedIn() && isRealAdmin()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
         .auth-card { width:100%; max-width:420px; }
@@ -29,8 +29,8 @@ if (isLoggedIn() && isRealAdmin()) {
         <h1>Admin Login</h1>
         <p>Secure access for Code Arena administrators.</p>
         <div class="form-group">
-            <label class="form-label">Username or Email</label>
-            <input id="identifier" class="form-input" autocomplete="username">
+            <label class="form-label">Account Identifier</label>
+            <input id="identifier" class="form-input" autocomplete="username" spellcheck="false">
         </div>
         <div class="form-group">
             <label class="form-label">Password</label>
@@ -43,12 +43,12 @@ if (isLoggedIn() && isRealAdmin()) {
     </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 async function adminLogin() {
     const identifier = document.getElementById('identifier').value.trim();
     const password = document.getElementById('password').value;
-    if (!identifier || !password) { toast('Enter username/email and password', 'warn'); return; }
+    if (!identifier || !password) { toast('Enter account identifier and password', 'warn'); return; }
 
     const btn = document.getElementById('login-btn');
     btn.disabled = true;

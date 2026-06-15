@@ -11,7 +11,7 @@ require_once 'config/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Problems — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .filters { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; align-items:center; }
         .filter-input { flex:1; min-width:200px; }
@@ -118,7 +118,7 @@ require_once 'config/db.php';
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 let currentPage = 1;
 

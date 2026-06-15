@@ -10,7 +10,7 @@ require_once 'includes/session.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saved Contests - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .saved-head { display:flex; justify-content:space-between; gap:18px; align-items:flex-end; margin-bottom:24px; }
         .saved-head p { margin-top:6px; color:var(--text-muted); }
@@ -41,7 +41,7 @@ require_once 'includes/session.php';
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const SAVE_KEY = 'code_arena_saved_contests';
 const demoContests = [

@@ -15,7 +15,7 @@ if (isLoggedIn()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .auth-card { max-width: 620px; }
         .step-label { color:var(--text-muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin:18px 0 10px; }
@@ -72,8 +72,8 @@ if (isLoggedIn()) {
                 <input type="text" id="fullName" class="form-input" placeholder="Your full name" autofocus>
             </div>
             <div class="form-group">
-                <label class="form-label">Email</label>
-                <input type="email" id="email" class="form-input" placeholder="you@example.com">
+                <label class="form-label">Contact Address</label>
+                <input type="text" id="email" class="form-input" inputmode="email" autocomplete="username" spellcheck="false" placeholder="account@example.com">
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
@@ -133,6 +133,7 @@ if (isLoggedIn()) {
     </div>
 </div>
 
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 let accountType = 'individual';
 

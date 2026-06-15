@@ -59,6 +59,13 @@ function navActive(array $pages): string {
            class="nav-link <?= navActive(['submissions.php']) ?>">
             Submissions
         </a>
+        <?php if (isLoggedIn() && !isAdmin()): ?>
+        <a href="/code-arena/announcements.php"
+           class="nav-link <?= navActive(['announcements.php']) ?>">
+            Announcements
+            <span id="announcement-count-badge" style="display:none;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--red);color:#fff;font-size:.72rem;font-weight:900;line-height:1.5"></span>
+        </a>
+        <?php endif; ?>
         <?php if (isInstructor() && !isOrgAdmin()): ?>
         <a href="/code-arena/instructor.php"
            class="nav-link <?= navActive(['instructor.php']) ?>">
@@ -92,3 +99,32 @@ function navActive(array $pages): string {
         <?php endif; ?>
     </div>
 </nav>
+
+<?php if (isLoggedIn() && !isAdmin()): ?>
+<script>
+(function announcementBadge() {
+    const badge = document.getElementById('announcement-count-badge');
+    if (!badge) return;
+
+    async function refreshAnnouncementCount() {
+        try {
+            const res = await fetch('/code-arena/api/announcements/count.php', { credentials: 'include' });
+            const data = await res.json();
+            const count = Number(data?.data?.count || 0);
+            if (count > 0) {
+                badge.textContent = '+' + (count > 99 ? '99' : count);
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+                badge.textContent = '';
+            }
+        } catch (error) {
+            badge.style.display = 'none';
+        }
+    }
+
+    refreshAnnouncementCount();
+    setInterval(refreshAnnouncementCount, 30000);
+})();
+</script>
+<?php endif; ?>

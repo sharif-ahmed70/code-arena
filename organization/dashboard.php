@@ -97,7 +97,7 @@ foreach ($recentContests as $contest) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Organization Control Panel - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         body { background:var(--bg); }
         .org-shell { min-height:100vh; display:grid; grid-template-columns:260px minmax(0,1fr); }

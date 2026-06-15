@@ -13,7 +13,7 @@ $initial = strtoupper(substr($username, 0, 1));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contest Tracker - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         :root {
             --ca-bg: #070a12;
@@ -1820,7 +1820,7 @@ $initial = strtoupper(substr($username, 0, 1));
 </div>
 <?php endif; ?>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const IS_ADMIN = <?= isAdmin() ? 'true' : 'false' ?>;
 const CAN_MANAGE = <?= isInstructor() ? 'true' : 'false' ?>;

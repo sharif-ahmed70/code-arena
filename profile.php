@@ -18,7 +18,7 @@ $isSelf = isLoggedIn() && (currentUsername() === $username);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($username ?: 'Profile') ?> — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .profile-header {
             display: flex; gap: 28px; align-items: center; margin-bottom: 36px;
@@ -204,7 +204,7 @@ $isSelf = isLoggedIn() && (currentUsername() === $username);
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const USERNAME = '<?= addslashes($username) ?>';
 const PROFILE_ID = <?= $profileId ?: 'null' ?>;

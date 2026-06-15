@@ -13,6 +13,17 @@ syncContestStatuses($pdo);
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+function adminContestTableExists(PDO $pdo, string $table): bool {
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = ?'
+    );
+    $stmt->execute([$table]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 if ($method === 'GET') {
     $status = cleanString($_GET['status'] ?? '', 20);
     $search = cleanString($_GET['search'] ?? '', 100);
@@ -88,10 +99,14 @@ if ($method === 'DELETE') {
 
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('DELETE FROM contest_problems WHERE contest_id = ?')->execute([$id]);
-        $pdo->prepare('DELETE FROM contest_participants WHERE contest_id = ?')->execute([$id]);
-        $pdo->prepare('DELETE FROM contest_leaderboard WHERE contest_id = ?')->execute([$id]);
-        $pdo->prepare('DELETE FROM user_rating_history WHERE contest_id = ?')->execute([$id]);
+        foreach (['contest_problems', 'contest_participants', 'contest_leaderboard', 'user_rating_history'] as $table) {
+            if (adminContestTableExists($pdo, $table)) {
+                $pdo->prepare("DELETE FROM `$table` WHERE contest_id = ?")->execute([$id]);
+            }
+        }
+        if (adminContestTableExists($pdo, 'submissions')) {
+            $pdo->prepare('UPDATE submissions SET contest_id = NULL WHERE contest_id = ?')->execute([$id]);
+        }
         $pdo->prepare('DELETE FROM contests WHERE id = ?')->execute([$id]);
         $pdo->commit();
     } catch (Throwable $e) {

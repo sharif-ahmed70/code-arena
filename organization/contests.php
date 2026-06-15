@@ -6,7 +6,7 @@ $organization = requireOrganizationPage($pdo);
 $pageTitle = 'Contests';
 $activeOrgPage = 'contests';
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Organization Contests - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2"></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Organization Contests - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5"></head><body>
 <?php require_once '../includes/organization_shell.php'; ?>
 <div class="org-content">
     <div class="org-toolbar">
@@ -16,7 +16,7 @@ $activeOrgPage = 'contests';
     <div class="table-wrap org-card"><table><thead><tr><th>ID</th><th>Contest</th><th>Lifecycle</th><th>Published</th><th>Visibility</th><th>Participants</th><th>Submissions</th><th>Window</th><th>Actions</th></tr></thead><tbody id="contest-body"></tbody></table></div>
 </div>
 <?php require_once '../includes/organization_shell_end.php'; ?>
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 async function loadContests(){
  const {ok,data}=await api('/code-arena/api/organization/contests.php');

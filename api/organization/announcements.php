@@ -6,15 +6,17 @@
 require_once '../../config/db.php';
 require_once '../../includes/organization.php';
 require_once '../../includes/response.php';
+require_once '../../includes/announcements.php';
 
 $org = requireOrganizationApi($pdo);
 $orgId = (int)$org['id'];
 $method = $_SERVER['REQUEST_METHOD'];
+ensureAnnouncementsSchema($pdo);
 
 if ($method === 'GET') {
     $contestId = (int)($_GET['contest_id'] ?? 0);
     $params = [$orgId];
-    $where = 'WHERE a.org_id = ?';
+    $where = 'WHERE a.org_id = ? AND a.target_type IN ("org", "contest")';
     if ($contestId) {
         requireOwnedContest($pdo, $orgId, $contestId);
         $where .= ' AND a.contest_id = ?';
@@ -44,10 +46,11 @@ if ($method === 'POST') {
     if ($contestId) requireOwnedContest($pdo, $orgId, $contestId);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO announcements (org_id, contest_id, title, message, type, is_published, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO announcements (title, message, target_type, org_id, contest_id, type, is_published, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     );
-    $stmt->execute([$orgId, $contestId, $title, $message, $type, $isPublished, currentUserId()]);
+    $targetType = $contestId ? 'contest' : 'org';
+    $stmt->execute([$title, $message, $targetType, $orgId, $contestId, $type, $isPublished, currentUserId()]);
     created(['id' => (int)$pdo->lastInsertId()], 'Announcement created');
 }
 

@@ -24,7 +24,7 @@
     <div class="form-group"><label class="form-label">Time Limit (ms)</label><input id="time_limit_ms" class="form-input" type="number" min="500" max="10000" value="2000"></div>
     <div style="display:flex;gap:10px;align-items:center"><button class="btn-primary" onclick="saveProblem()">Save Problem</button><a class="btn-outline" href="/code-arena/organization/problems.php">Back</a><span id="msg" style="color:var(--text-muted)"></span></div>
 </section>
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const PROBLEM_ID=<?= (int)($problemId ?? 0) ?>;
 const MODE='<?= htmlspecialchars($problemFormMode ?? 'create') ?>';

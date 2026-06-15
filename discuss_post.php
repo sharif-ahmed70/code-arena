@@ -13,7 +13,7 @@ $isAdmin  = isAdmin();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discuss — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted);
                      font-size:.88rem; margin-bottom:20px; }
@@ -131,7 +131,7 @@ $isAdmin  = isAdmin();
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 const POST_ID    = <?= $postId ?>;
 const IS_LOGGED  = <?= $loggedIn ? 'true' : 'false' ?>;

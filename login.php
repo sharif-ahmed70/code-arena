@@ -17,7 +17,7 @@ if (isLoggedIn()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
 </head>
 <body>
 
@@ -30,12 +30,14 @@ if (isLoggedIn()) {
         <div class="alert alert-error" id="alert"></div>
 
         <div class="form-group">
-            <label class="form-label">Username or Email</label>
+            <label class="form-label">Account Identifier</label>
             <input
                 type="text"
                 id="identifier"
                 class="form-input"
-                placeholder="Enter username or email"
+                placeholder="Enter username or account ID"
+                autocomplete="username"
+                spellcheck="false"
                 autofocus
             >
         </div>
@@ -61,6 +63,7 @@ if (isLoggedIn()) {
     </div>
 </div>
 
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
     // Allow pressing Enter to submit
     document.addEventListener('keydown', e => {

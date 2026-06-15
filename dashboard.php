@@ -17,7 +17,7 @@ if (!isAdmin() && isset($_SESSION['profile_completed']) && (int)$_SESSION['profi
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .dash-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; margin-bottom:28px; }
         .dash-head p { color:var(--text-muted); margin-top:6px; }
@@ -185,7 +185,7 @@ if (!isAdmin() && isset($_SESSION['profile_completed']) && (int)$_SESSION['profi
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 function escHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({

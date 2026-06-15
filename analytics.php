@@ -11,7 +11,7 @@ requireLogin();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .analytics-head { display:flex; justify-content:space-between; gap:18px; align-items:flex-end; margin-bottom:24px; }
         .analytics-head p { margin-top:6px; color:var(--text-muted); }
@@ -70,7 +70,7 @@ requireLogin();
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 function escHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({

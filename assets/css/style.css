@@ -58,6 +58,7 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
@@ -71,6 +72,13 @@ body {
     linear-gradient(rgba(108, 160, 255, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(108, 160, 255, 0.035) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+input,
+textarea,
+select,
+button {
+  color-scheme: dark;
 }
 
 a {
@@ -909,6 +917,34 @@ body {
   border-radius: var(--radius-sm) !important;
 }
 
+input.form-input,
+textarea.form-input,
+input.admin-search,
+input.org-search,
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="password"],
+input[type="number"],
+textarea {
+  color: var(--text) !important;
+  background-color: #111827 !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, .14) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text) !important;
+  box-shadow: 0 0 0 1000px #111827 inset !important;
+  caret-color: var(--text) !important;
+}
+
 .form-input:focus,
 .admin-search:focus,
 .org-search:focus {
@@ -1059,4 +1095,128 @@ td a:hover,
 [style*="border:1px solid var(--border)"],
 [style*="border: 1px solid var(--border)"] {
   border-color: var(--border) !important;
+}
+
+/* Global dropdown contrast fix */
+select,
+select.form-input,
+.role-select,
+.mini-select {
+  color-scheme: dark !important;
+  color: var(--text) !important;
+  background-color: #111827 !important;
+  background:
+    linear-gradient(45deg, transparent 50%, #e5e7eb 50%),
+    linear-gradient(135deg, #e5e7eb 50%, transparent 50%),
+    #111827 !important;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #e5e7eb 50%),
+    linear-gradient(135deg, #e5e7eb 50%, transparent 50%) !important;
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50% !important;
+  background-size: 6px 6px, 6px 6px !important;
+  background-repeat: no-repeat !important;
+  border-color: rgba(255, 255, 255, .14) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text) !important;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select option,
+select optgroup {
+  color-scheme: dark !important;
+  color: #e5e7eb !important;
+  background-color: #111827 !important;
+  background: #111827 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #e5e7eb !important;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  color: #ffffff !important;
+  background-color: #7c3aed !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+select:disabled,
+select.form-input:disabled,
+.role-select:disabled,
+.mini-select:disabled {
+  color: var(--text-muted) !important;
+  background-color: #111827 !important;
+  opacity: .72 !important;
+  -webkit-text-fill-color: var(--text-muted) !important;
+}
+
+.dropdown,
+.dropdown-menu,
+.dropdown-panel,
+.select-menu,
+.filter-menu,
+.admin-control-menu,
+[role="menu"],
+[data-dropdown],
+[data-dropdown-menu] {
+  color: var(--text) !important;
+  background-color: rgba(17, 24, 39, .98) !important;
+  border-color: rgba(255, 255, 255, .14) !important;
+}
+
+.dropdown a,
+.dropdown button,
+.dropdown-item,
+.dropdown-menu a,
+.dropdown-menu button,
+.dropdown-panel a,
+.dropdown-panel button,
+.select-menu a,
+.select-menu button,
+.filter-menu a,
+.filter-menu button,
+.admin-control-item,
+[role="menuitem"] {
+  color: #e5e7eb !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #e5e7eb !important;
+}
+
+.dropdown a:hover,
+.dropdown button:hover,
+.dropdown-item:hover,
+.dropdown-menu a:hover,
+.dropdown-menu button:hover,
+.dropdown-panel a:hover,
+.dropdown-panel button:hover,
+.select-menu a:hover,
+.select-menu button:hover,
+.filter-menu a:hover,
+.filter-menu button:hover,
+.admin-control-item:hover,
+[role="menuitem"]:hover {
+  color: #ffffff !important;
+  background-color: rgba(124, 58, 237, .22) !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Hide known temporary-mail extension overlays injected into form fields. */
+[class*="tempmail" i],
+[id*="tempmail" i],
+[title*="tempmail" i],
+[aria-label*="tempmail" i],
+[alt*="tempmail" i],
+[src*="tempmail" i],
+[class*="temp-mail" i],
+[id*="temp-mail" i],
+[title*="temp-mail" i],
+[aria-label*="temp-mail" i],
+[alt*="temp-mail" i],
+[src*="temp-mail" i] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }

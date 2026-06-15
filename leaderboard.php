@@ -11,7 +11,7 @@ require_once 'config/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leaderboard - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .board-toolbar { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
         .board-btn { padding:9px 14px; border-radius:var(--radius-sm); border:1px solid var(--border);
@@ -63,7 +63,7 @@ require_once 'config/db.php';
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 let boardMode = 'practice';
 

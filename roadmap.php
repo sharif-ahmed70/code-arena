@@ -12,7 +12,7 @@ if (isAdmin()) { header('Location: /code-arena/admin.php'); exit; }
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Roadmap — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5">
     <style>
         .roadmap-grid {
             display: grid;
@@ -94,7 +94,7 @@ if (isAdmin()) { header('Location: /code-arena/admin.php'); exit; }
 </div>
 </div>
 
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 async function loadRoadmap() {
     const { ok, data } = await api('/code-arena/api/roadmap/progress.php');

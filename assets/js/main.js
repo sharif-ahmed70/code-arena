@@ -88,3 +88,40 @@ window.langName = function (lang) {
     };
     return map[lang] || lang;
 };
+
+// Keep browser extension temp-mail badges from covering CodeArena inputs.
+(function removeTempMailOverlays() {
+    const looksLikeTempMail = node => {
+        if (!node || node.nodeType !== 1) return false;
+        const value = [
+            node.id,
+            node.className,
+            node.getAttribute?.('title'),
+            node.getAttribute?.('aria-label'),
+            node.getAttribute?.('alt'),
+            node.getAttribute?.('src'),
+            node.textContent,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return value.includes('tempmail') || value.includes('temp-mail');
+    };
+
+    const clean = root => {
+        if (!root?.querySelectorAll) return;
+        root.querySelectorAll('[id],[class],[title],[aria-label],[alt],[src]').forEach(node => {
+            if (looksLikeTempMail(node)) node.remove();
+        });
+    };
+
+    clean(document);
+    new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(node => {
+                if (looksLikeTempMail(node)) {
+                    node.remove();
+                } else {
+                    clean(node);
+                }
+            });
+        });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+})();

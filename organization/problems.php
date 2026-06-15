@@ -6,7 +6,7 @@ $organization = requireOrganizationPage($pdo);
 $pageTitle = 'Problem Bank';
 $activeOrgPage = 'problems';
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Problem Bank - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2"><style>.difficulty-badge{padding:4px 9px;border-radius:999px;font-size:.75rem}.difficulty-Easy{background:rgba(0,232,122,.1);color:var(--accent)}.difficulty-Medium{background:rgba(255,209,102,.1);color:var(--yellow)}.difficulty-Hard{background:rgba(255,79,79,.1);color:var(--red)}</style></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Problem Bank - Code Arena</title><link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui5"><style>.difficulty-badge{padding:4px 9px;border-radius:999px;font-size:.75rem}.difficulty-Easy{background:rgba(0,232,122,.1);color:var(--accent)}.difficulty-Medium{background:rgba(255,209,102,.1);color:var(--yellow)}.difficulty-Hard{background:rgba(255,79,79,.1);color:var(--red)}</style></head><body>
 <?php require_once '../includes/organization_shell.php'; ?>
 <div class="org-content">
     <div class="org-toolbar">
@@ -18,7 +18,7 @@ $activeOrgPage = 'problems';
     <div class="table-wrap org-card"><table><thead><tr><th>ID</th><th>Problem</th><th>Difficulty</th><th>Tags</th><th>Used In</th><th>Created</th><th>Actions</th></tr></thead><tbody id="problem-body"></tbody></table></div>
 </div>
 <?php require_once '../includes/organization_shell_end.php'; ?>
-<script src="/code-arena/assets/js/main.js"></script>
+<script src="/code-arena/assets/js/main.js?v=20260615-ui5"></script>
 <script>
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 async function loadProblems(){
