@@ -94,7 +94,7 @@ if ($method === 'PUT') {
         ok(null, 'User unblocked');
     }
 
-    if (!in_array($role, ['student', 'instructor', 'admin'], true)) err('Invalid role');
+    if (!in_array($role, ['student', 'user', 'instructor', 'org_admin', 'admin'], true)) err('Invalid role');
 
     if ($role !== 'admin') {
         $st = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin' AND COALESCE(is_deleted, 0) = 0");

@@ -2010,45 +2010,30 @@ async function loadContests(status = '') {
 
     const params = status ? `?status=${encodeURIComponent(status)}` : '';
     const apiData = await fetchContestData(params);
-    const normalizedDemo = demoContests.map(contest => normalizeContest(contest, 'demo'));
 
     if (!apiData.ok) {
-        allContests = normalizedDemo;
+        allContests = [];
         renderEverything();
+        toast('Contest feed could not be loaded', 'error');
         return;
     }
 
     const normalizedApi = (apiData.data || []).map(contest => normalizeContest(contest, 'api'));
-    allContests = mergeContests(normalizedApi, normalizedDemo);
+    allContests = normalizedApi.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+    heroIndex = 0;
+    heroSlideStartedAt = Date.now();
     renderEverything();
 }
 
 async function fetchContestData(params) {
-    const endpoints = [
-        `/code-arena/api/contests/list.php${params}`,
-        `/code-arena/api/contests/index.php${params}`
-    ];
-    for (const endpoint of endpoints) {
-        try {
-            const { ok, data } = await api(endpoint);
-            if (ok && data.success && Array.isArray(data.data)) {
-                return { ok: true, data: data.data };
-            }
-        } catch (_) {}
-    }
+    const endpoint = `/code-arena/api/contests/feed.php${params}`;
+    try {
+        const { ok, data } = await api(endpoint, { cache: 'no-store' });
+        if (ok && data.success && Array.isArray(data.data)) {
+            return { ok: true, data: data.data };
+        }
+    } catch (_) {}
     return { ok: false, data: [] };
-}
-
-function mergeContests(apiRows, demoRows) {
-    const seen = new Set();
-    const merged = [];
-    [...apiRows, ...demoRows].forEach(contest => {
-        const key = `${contest.source}:${contest.id}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        merged.push(contest);
-    });
-    return merged.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 }
 
 function renderEverything() {

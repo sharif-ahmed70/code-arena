@@ -8,7 +8,7 @@ require_once __DIR__ . '/session.php';
 function requireAdminApi(): void {
     require_once __DIR__ . '/response.php';
     requireLogin();
-    if (!isAdmin()) {
+    if (!isRealAdmin()) {
         err('Admin access required', 403);
     }
 }
@@ -18,7 +18,7 @@ function requireAdminPage(): void {
         header('Location: /code-arena/admin_login.php');
         exit;
     }
-    if (!isAdmin()) {
+    if (!isRealAdmin()) {
         header('Location: /code-arena/problems.php');
         exit;
     }

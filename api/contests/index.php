@@ -24,7 +24,10 @@ if ($method === 'GET') {
         $stmt = $pdo->prepare(
             'SELECT c.*, u.username AS author
              FROM contests c JOIN users u ON u.id = c.created_by AND COALESCE(u.is_deleted, 0) = 0
-             WHERE c.slug = ?'
+             WHERE c.slug = ?
+               AND COALESCE(c.is_published, 1) = 1
+               AND COALESCE(c.visibility, "public") IN ("public", "org")
+               AND COALESCE(c.org_status, "scheduled") NOT IN ("draft", "archived")'
         );
         $stmt->execute([trim($_GET['slug'])]);
         $contest = $stmt->fetch();
@@ -61,16 +64,24 @@ if ($method === 'GET') {
 
     $filter = $_GET['status'] ?? '';
     if ($filter === 'live') $filter = 'active';
-    $where  = $filter && in_array($filter, ['upcoming','active','ended'])
-            ? 'WHERE c.status = ?' : '';
-    $params = $filter ? [$filter] : [];
+    $where = [
+        'COALESCE(c.is_published, 1) = 1',
+        'COALESCE(c.visibility, "public") IN ("public", "org")',
+        'COALESCE(c.org_status, "scheduled") NOT IN ("draft", "archived")',
+    ];
+    $params = [];
+    if ($filter && in_array($filter, ['upcoming','active','ended'], true)) {
+        $where[] = 'c.status = ?';
+        $params[] = $filter;
+    }
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
 
     $stmt = $pdo->prepare(
         "SELECT c.id, c.title, c.slug, c.status, c.start_time, c.end_time,
                 c.is_rated, u.username AS author,
                 (SELECT COUNT(*) FROM contest_participants cp WHERE cp.contest_id = c.id) AS participant_count
          FROM contests c JOIN users u ON u.id = c.created_by AND COALESCE(u.is_deleted, 0) = 0
-         $where ORDER BY c.start_time DESC LIMIT 50"
+         $whereSql ORDER BY c.start_time DESC LIMIT 50"
     );
     $stmt->execute($params);
     ok($stmt->fetchAll());
@@ -84,16 +95,23 @@ if ($method === 'POST' && $action === 'join') {
     $contestId = (int) ($body['contest_id'] ?? 0);
     if (!$contestId) err('contest_id required');
 
-    $cSt = $pdo->prepare('SELECT id, status FROM contests WHERE id = ?');
+    $cSt = $pdo->prepare('SELECT id, status, org_id, org_status, is_published, visibility FROM contests WHERE id = ?');
     $cSt->execute([$contestId]);
     $contest = $cSt->fetch();
     if (!$contest)                      err('Contest not found', 404);
+    if (
+        !(int)($contest['is_published'] ?? 1)
+        || !in_array($contest['visibility'] ?? 'public', ['public', 'org'], true)
+        || in_array($contest['org_status'] ?? 'scheduled', ['draft', 'archived'], true)
+    ) {
+        err('Contest is not open for registration', 403);
+    }
     if ($contest['status'] === 'ended') err('Contest has ended');
 
     try {
         $pdo->prepare(
-            'INSERT INTO contest_participants (contest_id, user_id) VALUES (?, ?)'
-        )->execute([$contestId, currentUserId()]);
+            'INSERT INTO contest_participants (contest_id, org_id, user_id) VALUES (?, ?, ?)'
+        )->execute([$contestId, $contest['org_id'] ?? null, currentUserId()]);
         ok(null, 'Registered for contest');
     } catch (PDOException $e) {
         err('Already registered');
@@ -113,12 +131,19 @@ if ($method === 'POST' && !$action) {
 
     $base   = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', trim($title, '-')));
     $slug   = $base . '-' . time();
+    $creatorOrgId = null;
+    if (currentRole() === 'org_admin') {
+        $orgStmt = $pdo->prepare('SELECT org_id FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0');
+        $orgStmt->execute([currentUserId()]);
+        $creatorOrgId = $orgStmt->fetchColumn() ?: null;
+    }
 
     $stmt = $pdo->prepare(
-        'INSERT INTO contests (title, slug, description, start_time, end_time, created_by, is_rated, status)
-         VALUES (?,?,?,?,?,?,?,?)'
+        'INSERT INTO contests (org_id, title, slug, description, start_time, end_time, created_by, is_rated, status)
+         VALUES (?,?,?,?,?,?,?,?,?)'
     );
     $stmt->execute([
+        $creatorOrgId,
         $title,
         $slug,
         $b['description'] ?? '',

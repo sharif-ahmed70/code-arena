@@ -4,6 +4,12 @@
 // ============================================================
 require_once 'includes/session.php';
 requireLogin();
+if (canAccessOrganizationDashboard()) {
+    safeRedirect('/code-arena/organization/dashboard.php');
+}
+if (!isAdmin() && isset($_SESSION['profile_completed']) && (int)$_SESSION['profile_completed'] === 0) {
+    safeRedirect('/code-arena/profile_complete.php');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

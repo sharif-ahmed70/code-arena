@@ -19,15 +19,31 @@ $stmt->execute([$id]);
 $contest = $stmt->fetch();
 if (!$contest) { header('Location: /code-arena/contests.php'); exit; }
 
+$canPreviewOrgContest = false;
+if (isLoggedIn() && currentRole() === 'org_admin' && !empty($contest['org_id'])) {
+    $orgPreviewStmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id = ? AND org_id = ? AND COALESCE(is_deleted, 0) = 0');
+    $orgPreviewStmt->execute([currentUserId(), (int)$contest['org_id']]);
+    $canPreviewOrgContest = (bool)$orgPreviewStmt->fetchColumn();
+}
+$contestVisible = (int)($contest['is_published'] ?? 1) === 1
+    && in_array($contest['visibility'] ?? 'public', ['public', 'org'], true)
+    && !in_array($contest['org_status'] ?? 'scheduled', ['draft', 'archived'], true);
+if (!$contestVisible && !isAdmin() && !$canPreviewOrgContest) {
+    header('Location: /code-arena/contests.php');
+    exit;
+}
+
 // Problems
 $pStmt = $pdo->prepare(
-    'SELECT p.id, p.title, p.slug, p.difficulty, cp.points, cp.order_index
+    'SELECT p.id, COALESCE(op.title, p.title) AS title, p.slug,
+            COALESCE(op.difficulty, p.difficulty) AS difficulty, cp.points, cp.order_index
      FROM contest_problems cp
      JOIN problems p ON p.id = cp.problem_id
+     LEFT JOIN org_problems op ON op.id = cp.org_problem_id AND op.org_id = ?
      WHERE cp.contest_id = ?
      ORDER BY cp.order_index'
 );
-$pStmt->execute([$id]);
+$pStmt->execute([(int)($contest['org_id'] ?? 0), $id]);
 $problems = $pStmt->fetchAll();
 
 // Participant count

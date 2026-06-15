@@ -3,7 +3,7 @@
 //  CODE ARENA - Admin Login
 // ============================================================
 require_once 'includes/session.php';
-if (isLoggedIn() && isAdmin()) {
+if (isLoggedIn() && isRealAdmin()) {
     header('Location: /code-arena/admin.php');
     exit;
 }

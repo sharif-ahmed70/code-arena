@@ -24,7 +24,7 @@ function navActive(array $pages): string {
 
     <div class="nav-links">
         <?php if (isLoggedIn() && !isAdmin()): ?>
-        <a href="/code-arena/dashboard.php"
+        <a href="<?= htmlspecialchars(authDashboardPath($currentUserRole)) ?>"
            class="nav-link <?= navActive(['dashboard.php']) ?>">
             Dashboard
         </a>
@@ -59,10 +59,16 @@ function navActive(array $pages): string {
            class="nav-link <?= navActive(['submissions.php']) ?>">
             Submissions
         </a>
-        <?php if (isInstructor()): ?>
+        <?php if (isInstructor() && !isOrgAdmin()): ?>
         <a href="/code-arena/instructor.php"
            class="nav-link <?= navActive(['instructor.php']) ?>">
             Instructor
+        </a>
+        <?php endif; ?>
+        <?php if (isOrgAdmin()): ?>
+        <a href="/code-arena/organization/dashboard.php"
+           class="nav-link <?= navActive(['dashboard.php']) ?>">
+            Organization
         </a>
         <?php endif; ?>
         <?php if (isAdmin()): ?>
@@ -75,6 +81,7 @@ function navActive(array $pages): string {
 
     <div class="nav-right">
         <?php if (isLoggedIn()): ?>
+            <?php require __DIR__ . '/admin_control_dropdown.php'; ?>
             <a href="/code-arena/profile.php" class="nav-avatar" title="<?= htmlspecialchars($currentUser) ?>">
                 <?= $avatarLetter ?>
             </a>

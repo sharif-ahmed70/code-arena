@@ -21,7 +21,9 @@ enforceRateLimit($pdo, rateLimitKey('login', $identifier), 8, 15 * 60);
 
 try {
     $stmt = $pdo->prepare(
-        'SELECT id, username, email, password, role, COALESCE(is_blocked, 0) AS is_blocked
+        'SELECT id, username, email, password, role,
+                COALESCE(profile_completed, 0) AS profile_completed,
+                COALESCE(is_blocked, 0) AS is_blocked
          FROM users WHERE (username = ? OR email = ?) AND COALESCE(is_deleted, 0) = 0'
     );
     $stmt->execute([$identifier, $identifier]);
@@ -45,6 +47,7 @@ try {
             'username' => $user['username'],
             'role'     => $user['role'],
         ],
+        'redirect_url' => authRedirectPath($user),
     ], 'Login successful');
 } catch (PDOException $e) {
     error_log('login failed: ' . $e->getMessage());

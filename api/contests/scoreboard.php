@@ -45,6 +45,7 @@ $participantsStmt = $pdo->prepare(
      FROM contest_participants cp
      JOIN users u ON u.id = cp.user_id
      WHERE cp.contest_id = ? AND u.role <> 'admin'
+       AND COALESCE(cp.status, 'registered') NOT IN ('removed', 'banned', 'rejected')
      ORDER BY cp.registered_at ASC"
 );
 $participantsStmt->execute([$contestId]);

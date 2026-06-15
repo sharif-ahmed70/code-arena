@@ -60,6 +60,7 @@ if ($isPractice && $contestId) {
 
 $userId = currentUserId();
 enforceRateLimit($pdo, rateLimitKey('submit', (string)$userId), 20, 60);
+$submissionOrgId = null;
 
 // ── Load problem ─────────────────────────────────────────────
 $stmt = $pdo->prepare(
@@ -78,15 +79,20 @@ if (count($testCases) > 50) err('Too many test cases configured for this problem
 // Normal contest submissions must belong to an active contest and a registered
 // participant. Practice submissions are guarded separately above.
 if ($contestId && !$isPractice) {
-    $contestStmt = $pdo->prepare('SELECT id, status FROM contests WHERE id = ?');
+    $contestStmt = $pdo->prepare('SELECT id, status, org_id FROM contests WHERE id = ?');
     $contestStmt->execute([$contestId]);
     $contest = $contestStmt->fetch();
     if (!$contest) err('Contest not found', 404);
     if ($contest['status'] !== 'active') err('Contest is not active', 403);
+    $submissionOrgId = $contest['org_id'] ?? null;
 
-    $regStmt = $pdo->prepare('SELECT COUNT(*) FROM contest_participants WHERE contest_id = ? AND user_id = ?');
+    $regStmt = $pdo->prepare('SELECT status FROM contest_participants WHERE contest_id = ? AND user_id = ?');
     $regStmt->execute([$contestId, $userId]);
-    if (!$regStmt->fetchColumn()) err('Register for this contest before submitting', 403);
+    $participantStatus = $regStmt->fetchColumn();
+    if (!$participantStatus) err('Register for this contest before submitting', 403);
+    if (in_array($participantStatus, ['removed', 'banned', 'rejected'], true)) {
+        err('Your contest participation is not active', 403);
+    }
 
     $cpStmt = $pdo->prepare('SELECT COUNT(*) FROM contest_problems WHERE contest_id = ? AND problem_id = ?');
     $cpStmt->execute([$contestId, $problemId]);
@@ -112,9 +118,9 @@ try {
 
 $ins = $pdo->prepare(
     'INSERT INTO submissions
-        (user_id, problem_id, code, language, status, hints_used, contest_id,
+        (user_id, problem_id, code, language, status, hints_used, contest_id, org_id,
          runtime_ms, test_results, is_practice)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 );
 $ins->execute([
     $userId,
@@ -124,6 +130,7 @@ $ins->execute([
     $verdict,
     $hintsUsed,
     $contestId,
+    $submissionOrgId,
     $runtimeMs,
     json_encode($judgeResult['results']),
     $isPractice ? 1 : 0,

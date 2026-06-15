@@ -7,7 +7,7 @@ require_once 'includes/session.php';
 
 // Already logged in? Go to problems
 if (isLoggedIn()) {
-    header('Location: /code-arena/problems.php');
+    header('Location: ' . (isset($_SESSION['profile_completed']) && (int)$_SESSION['profile_completed'] === 0 && !isAdmin() ? '/code-arena/profile_complete.php' : authDashboardPath()));
     exit;
 }
 ?>
@@ -96,8 +96,7 @@ if (isLoggedIn()) {
             const data = await res.json();
 
             if (data.success) {
-                // Redirect to problems page
-                window.location.href = '/code-arena/problems.php';
+                window.location.href = data.data?.redirect_url || '/code-arena/problems.php';
             } else {
                 showAlert(data.message || 'Login failed.', 'error');
                 btn.disabled = false;

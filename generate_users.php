@@ -27,5 +27,5 @@ for ($i = 1; $i <= 1000; $i++) {
     $conn->query($sql);
 }
 
-echo "1000 users generated successfully!";
+echo "1000 users generated successfully!";                                                                         
 ?>

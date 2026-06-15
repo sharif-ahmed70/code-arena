@@ -29,8 +29,7 @@ function requireLogin(): void {
             echo json_encode(['success' => false, 'message' => 'Login required']);
             exit;
         }
-        header('Location: /code-arena/login.php');
-        exit;
+        safeRedirect('/code-arena/login.php');
     }
 }
 function loginUser(array $user): void {
@@ -39,6 +38,7 @@ function loginUser(array $user): void {
     $_SESSION['username'] = $user['username'];
     $_SESSION['email']    = $user['email'] ?? null;
     $_SESSION['role']     = $user['role'];
+    $_SESSION['profile_completed'] = isset($user['profile_completed']) ? (int)$user['profile_completed'] : 1;
 }
 function logoutUser(): void {
     $_SESSION = [];
@@ -50,17 +50,24 @@ function logoutUser(): void {
 }
 function requireAdmin(): void {
     requireLogin();
-    if ($_SESSION['role'] !== 'admin') {
-        header('Location: /code-arena/problems.php');
-        exit;
+    if (!isRealAdmin()) {
+        safeRedirect('/code-arena/problems.php');
     }
 }
 function requireInstructor(): void {
     requireLogin();
-    if (!in_array($_SESSION['role'], ['admin', 'instructor'])) {
-        header('Location: /code-arena/problems.php');
-        exit;
+    if (!isInstructor()) {
+        safeRedirect('/code-arena/problems.php');
     }
+}
+function safeRedirect(string $target): void {
+    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+    $targetPath = parse_url($target, PHP_URL_PATH) ?: $target;
+    $currentPath = rtrim($currentPath, '/') ?: '/';
+    $targetPath = rtrim($targetPath, '/') ?: '/';
+    if ($currentPath === $targetPath) return;
+    header('Location: ' . $target);
+    exit;
 }
 function currentUserId(): ?int {
     return isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
@@ -69,11 +76,62 @@ function currentUsername(): ?string {
     return $_SESSION['username'] ?? null;
 }
 function currentRole(): ?string {
+    if (isRealAdmin()) {
+        $context = adminViewContext();
+        if ($context === 'user') return 'user';
+        if ($context === 'org') return 'org_admin';
+    }
     return $_SESSION['role'] ?? null;
 }
-function isAdmin(): bool {
+function isRealAdmin(): bool {
     return ($_SESSION['role'] ?? '') === 'admin';
 }
+function realRole(): ?string {
+    return $_SESSION['role'] ?? null;
+}
+function adminViewContext(): string {
+    if (!isRealAdmin()) return '';
+    $context = $_SESSION['admin_view_context'] ?? 'admin';
+    return in_array($context, ['admin', 'user', 'org'], true) ? $context : 'admin';
+}
+function setAdminViewContext(string $context): void {
+    if (!isRealAdmin()) return;
+    $_SESSION['admin_view_context'] = in_array($context, ['admin', 'user', 'org'], true) ? $context : 'admin';
+}
+function clearAdminViewContext(): void {
+    unset($_SESSION['admin_view_context']);
+}
+function isAdmin(): bool {
+    return isRealAdmin() && adminViewContext() === 'admin';
+}
 function isInstructor(): bool {
-    return in_array($_SESSION['role'] ?? '', ['admin', 'instructor']);
+    return in_array(currentRole() ?? '', ['admin', 'instructor', 'org_admin'], true);
+}
+function isOrgAdmin(): bool {
+    return ($_SESSION['role'] ?? '') === 'org_admin';
+}
+function isAdminOrgView(): bool {
+    return isRealAdmin() && adminViewContext() === 'org';
+}
+function isAdminUserView(): bool {
+    return isRealAdmin() && adminViewContext() === 'user';
+}
+function canAccessOrganizationDashboard(): bool {
+    return isOrgAdmin() || isAdminOrgView();
+}
+function authDashboardPath(?string $role = null): string {
+    $role = $role ?? currentRole();
+    if (isRealAdmin() && $role === 'admin') return '/code-arena/admin.php';
+    return match ($role) {
+        'admin' => '/code-arena/admin.php',
+        'org_admin' => '/code-arena/organization/dashboard.php',
+        default => '/code-arena/user/dashboard.php',
+    };
+}
+function authRedirectPath(array $user): string {
+    $role = $user['role'] ?? 'user';
+    if ($role !== 'admin' && empty($user['profile_completed'])) {
+        return '/code-arena/profile_complete.php';
+    }
+    return authDashboardPath($role);
 }

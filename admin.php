@@ -1,539 +1,386 @@
 <?php
 // ============================================================
-//  CODE ARENA — Admin Dashboard
+//  CODE ARENA - System Admin Control Hub
 // ============================================================
 require_once 'includes/session.php';
 require_once 'includes/adminAuthMiddleware.php';
 requireAdminPage();
-require_once 'config/db.php';
 
-$totalUsers    = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE COALESCE(is_deleted, 0) = 0')->fetchColumn();
-$totalProblems = (int) $pdo->query('SELECT COUNT(*) FROM problems WHERE COALESCE(is_deleted, 0) = 0')->fetchColumn();
-$totalSubs     = (int) $pdo->query('SELECT COUNT(*) FROM submissions')->fetchColumn();
-$totalContests = (int) $pdo->query('SELECT COUNT(*) FROM contests')->fetchColumn();
-$activeUsers7d = (int) $pdo->query('SELECT COUNT(DISTINCT user_id) FROM submissions WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();
 $currentAdminId = currentUserId();
+$currentAdmin = currentUsername() ?? 'admin';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin — Code Arena</title>
+    <title>System Admin - Code Arena</title>
     <link rel="stylesheet" href="/code-arena/assets/css/style.css">
     <style>
-        .tabs { display:flex; gap:4px; margin-bottom:28px; border-bottom:1px solid var(--border); padding-bottom:0; }
-        .tab-btn { padding:10px 20px; background:none; border:none; border-bottom:2px solid transparent;
-                   color:var(--text-muted); font-family:inherit; font-size:.9rem; font-weight:500;
-                   cursor:pointer; margin-bottom:-1px; transition:color .2s,border-color .2s; }
-        .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
-        .tab-pane { display:none; }
-        .tab-pane.active { display:block; }
-
-        /* Users table */
-        .role-select { padding:4px 8px; background:var(--bg-card2); border:1px solid var(--border);
-                       border-radius:4px; color:var(--text); font-size:.82rem; cursor:pointer; }
-
-        /* Problem form */
-        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-        @media(max-width:700px) { .form-grid { grid-template-columns:1fr; } }
-        .form-textarea { min-height:80px; }
-        .tc-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
-        .tc-item { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:start; }
-        .tc-item textarea { font-family:'JetBrains Mono',monospace; font-size:.82rem; resize:vertical; min-height:52px; }
-        .btn-sm { padding:6px 12px; font-size:.82rem; }
-
-        .search-row { display:flex; gap:10px; margin-bottom:16px; }
-        .search-row input { flex:1; }
-        .activity-list { display:flex; flex-direction:column; gap:8px; }
-        .activity-item { padding:10px 12px; background:var(--bg-card2); border:1px solid var(--border);
-                         border-radius:var(--radius-sm); font-size:.86rem; color:var(--text-dim); }
-        .activity-item span { color:var(--text-muted); font-size:.76rem; display:block; margin-top:2px; }
-        .filter-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-        .filter-row input, .filter-row select { min-width:160px; }
+        body { background:var(--bg); }
+        .admin-shell { min-height:100vh; display:grid; grid-template-columns:270px minmax(0,1fr); }
+        .admin-sidebar {
+            position:sticky; top:0; height:100vh; padding:22px 16px; border-right:1px solid var(--border);
+            background:linear-gradient(180deg,var(--bg-card),rgba(255,255,255,.018));
+            display:flex; flex-direction:column; gap:20px;
+        }
+        .admin-brand { padding:0 8px 16px; border-bottom:1px solid var(--border); }
+        .admin-brand strong { display:block; font-size:1.08rem; color:var(--text); }
+        .admin-brand span { display:block; color:var(--text-muted); font-size:.78rem; margin-top:4px; }
+        .admin-nav { display:grid; gap:5px; }
+        .admin-nav button {
+            border:0; width:100%; text-align:left; display:flex; align-items:center; gap:10px;
+            padding:10px 12px; border-radius:var(--radius-sm); background:transparent;
+            color:var(--text-muted); font:inherit; font-size:.9rem; cursor:pointer;
+            transition:background .18s ease,color .18s ease;
+        }
+        .admin-nav button:hover, .admin-nav button.active { background:rgba(0,232,122,.08); color:var(--accent); }
+        .admin-main { min-width:0; }
+        .admin-topbar {
+            position:sticky; top:0; z-index:10; min-height:68px; display:flex; align-items:center; gap:14px;
+            padding:14px 24px; border-bottom:1px solid var(--border); background:rgba(10,10,15,.94);
+        }
+        .admin-title { font-size:1.05rem; font-weight:800; white-space:nowrap; }
+        .admin-search {
+            flex:1; max-width:560px; padding:10px 12px; border-radius:var(--radius-sm);
+            border:1px solid var(--border); background:var(--bg-card2); color:var(--text);
+        }
+        .top-chip {
+            min-width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center;
+            border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card2);
+            color:var(--text-muted); padding:0 12px;
+        }
+        .admin-content { padding:24px; }
+        .admin-section { display:none; }
+        .admin-section.active { display:block; }
+        .section-head { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; margin-bottom:20px; }
+        .section-head h1 { margin:0; font-size:1.6rem; }
+        .section-head p { color:var(--text-muted); margin-top:6px; }
+        .metric-grid { display:grid; grid-template-columns:repeat(6,minmax(130px,1fr)); gap:14px; margin-bottom:20px; }
+        .metric-card, .panel-card {
+            border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-card); padding:18px;
+        }
+        .metric-card strong { display:block; font-size:1.7rem; line-height:1; }
+        .metric-card span { display:block; margin-top:8px; color:var(--text-muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.05em; }
+        .panel-grid { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr); gap:18px; align-items:start; }
+        .panel-title { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+        .panel-title h2, .panel-title h3 { margin:0; font-size:1rem; }
+        .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+        .toolbar input, .toolbar select { min-width:180px; }
+        .table-wrap table a { color:var(--text); font-weight:650; }
+        .table-wrap table a:hover { color:var(--accent); }
+        .role-select, .mini-select {
+            padding:6px 8px; background:var(--bg-card2); border:1px solid var(--border);
+            border-radius:var(--radius-sm); color:var(--text); font-size:.82rem;
+        }
+        .activity-list, .stack-list { display:grid; gap:10px; }
+        .activity-item, .list-item {
+            padding:12px; border:1px solid var(--border); border-radius:var(--radius-sm);
+            background:var(--bg-card2); color:var(--text-dim); font-size:.86rem;
+        }
+        .activity-item span, .list-item span { display:block; color:var(--text-muted); font-size:.76rem; margin-top:4px; }
+        .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+        .bars { height:190px; display:grid; grid-template-columns:repeat(10,1fr); gap:8px; align-items:end; }
+        .bar { min-height:6px; border-radius:8px 8px 3px 3px; background:linear-gradient(180deg,var(--accent),var(--blue)); }
+        .setting-row { display:grid; grid-template-columns:220px 1fr; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
+        .setting-row:last-child { border-bottom:0; }
+        @media(max-width:1200px) {
+            .metric-grid { grid-template-columns:repeat(3,1fr); }
+            .panel-grid, .chart-grid { grid-template-columns:1fr; }
+        }
+        @media(max-width:760px) {
+            .admin-shell { grid-template-columns:1fr; }
+            .admin-sidebar { position:static; height:auto; }
+            .admin-topbar { flex-wrap:wrap; }
+            .admin-search { flex-basis:100%; max-width:none; order:3; }
+            .metric-grid { grid-template-columns:1fr; }
+            .setting-row { grid-template-columns:1fr; }
+        }
     </style>
 </head>
 <body>
-<?php require_once 'includes/navbar.php'; ?>
-
-<div class="page">
-<div class="container">
-    <div class="page-header fade-up">
-        <h1>Admin Panel</h1>
-        <p>Manage users, problems, and platform settings.</p>
-    </div>
-
-    <div class="stats-row fade-up fade-up-1">
-        <div class="stat-card"><div class="stat-value"><?= $totalUsers ?></div><div class="stat-label">Users</div></div>
-        <div class="stat-card"><div class="stat-value"><?= $totalProblems ?></div><div class="stat-label">Problems</div></div>
-        <div class="stat-card"><div class="stat-value"><?= $totalSubs ?></div><div class="stat-label">Submissions</div></div>
-        <div class="stat-card"><div class="stat-value"><?= $activeUsers7d ?></div><div class="stat-label">Active Users 7d</div></div>
-    </div>
-
-    <div class="card fade-up fade-up-2" style="margin-bottom:24px">
-        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
-            Recent Activity
-            <button class="btn-outline btn-sm" onclick="loadDashboard()">Refresh</button>
+<div class="admin-shell">
+    <aside class="admin-sidebar">
+        <div class="admin-brand">
+            <strong>Code Arena Admin</strong>
+            <span>System control center</span>
         </div>
-        <div class="activity-list" id="activity-list">
-            <div class="activity-item">Loading activity...</div>
+        <nav class="admin-nav" aria-label="Admin navigation">
+            <button class="active" data-section="overview" onclick="showSection('overview')">Dashboard Overview</button>
+            <button data-section="users" onclick="showSection('users')">User Management</button>
+            <button data-section="organizations" onclick="showSection('organizations')">Organization Management</button>
+            <button data-section="contests" onclick="showSection('contests')">Contest Management</button>
+            <button data-section="problems" onclick="showSection('problems')">Problem Management</button>
+            <button data-section="analytics" onclick="showSection('analytics')">Analytics Dashboard</button>
+            <button data-section="submissions" onclick="showSection('submissions')">Submissions Monitor</button>
+            <button data-section="logs" onclick="showSection('logs')">System Logs / Activity</button>
+            <button data-section="settings" onclick="showSection('settings')">System Settings</button>
+        </nav>
+    </aside>
+
+    <main class="admin-main">
+        <header class="admin-topbar">
+            <div class="admin-title">System Admin</div>
+            <input class="admin-search" id="global-search" placeholder="Quick search users, contests, organizations" onkeydown="globalSearch(event)">
+            <a class="top-chip" href="#logs" onclick="showSection('logs')" title="Notifications">!</a>
+            <?php require __DIR__ . '/includes/admin_control_dropdown.php'; ?>
+            <a class="top-chip" href="/code-arena/profile.php" title="Admin profile"><?= htmlspecialchars(strtoupper(substr($currentAdmin, 0, 1))) ?></a>
+            <a class="btn-outline" href="/code-arena/api/auth/logout.php">Logout</a>
+        </header>
+
+        <div class="admin-content">
+            <section class="admin-section active" id="section-overview">
+                <div class="section-head">
+                    <div><h1>Dashboard Overview</h1><p>Central platform health, activity, and operational signals.</p></div>
+                    <button class="btn-outline" onclick="loadOverview()">Refresh</button>
+                </div>
+                <div class="metric-grid" id="overview-metrics"></div>
+                <div class="panel-grid">
+                    <section class="panel-card">
+                        <div class="panel-title"><h2>Recent Activity Logs</h2><a href="#logs" onclick="showSection('logs')">View all</a></div>
+                        <div class="activity-list" id="overview-activity"><div class="activity-item">Loading...</div></div>
+                    </section>
+                    <aside class="panel-card">
+                        <div class="panel-title"><h3>System Health Status</h3></div>
+                        <div class="stack-list" id="health-list"></div>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-users">
+                <div class="section-head"><div><h1>User Management</h1><p>View, ban/unban, and manage all platform accounts.</p></div></div>
+                <div class="toolbar">
+                    <input id="user-search" class="form-input" placeholder="Search users" oninput="debounce(loadUsers,350)()">
+                </div>
+                <div class="table-wrap"><table><thead><tr><th>ID</th><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Skill</th><th>Contest</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="users-body"></tbody></table></div>
+            </section>
+
+            <section class="admin-section" id="section-organizations">
+                <div class="section-head"><div><h1>Organization Management</h1><p>Monitor organization workspaces, owners, members, and hosted contests.</p></div></div>
+                <div class="toolbar"><input id="org-search" class="form-input" placeholder="Search organizations" oninput="debounce(loadOrganizations,350)()"></div>
+                <div class="table-wrap"><table><thead><tr><th>ID</th><th>Organization</th><th>Type</th><th>Owner</th><th>Members</th><th>Contests</th><th>Created</th></tr></thead><tbody id="orgs-body"></tbody></table></div>
+            </section>
+
+            <section class="admin-section" id="section-contests">
+                <div class="section-head"><div><h1>Contest Management</h1><p>Monitor live contests, manage contest lifecycle, and inspect participation.</p></div></div>
+                <div class="toolbar">
+                    <input id="contest-search" class="form-input" placeholder="Search contests" oninput="debounce(loadContests,350)()">
+                    <select id="contest-status" class="form-input" onchange="loadContests()"><option value="">All statuses</option><option value="active">Live</option><option value="upcoming">Upcoming</option><option value="ended">Ended</option></select>
+                    <a class="btn-primary" href="/code-arena/contests.php">Create Contest</a>
+                </div>
+                <div class="table-wrap"><table><thead><tr><th>ID</th><th>Contest</th><th>Status</th><th>Creator</th><th>Participants</th><th>Submissions</th><th>Window</th><th>Actions</th></tr></thead><tbody id="contests-body"></tbody></table></div>
+            </section>
+
+            <section class="admin-section" id="section-problems">
+                <div class="section-head"><div><h1>Problem Management</h1><p>Review problem inventory and open moderation tools.</p></div><a class="btn-primary" href="/code-arena/instructor.php">New Problem</a></div>
+                <div class="table-wrap"><table><thead><tr><th>ID</th><th>Title</th><th>Difficulty</th><th>Submissions</th><th>Public</th><th>Actions</th></tr></thead><tbody id="problems-body"></tbody></table></div>
+            </section>
+
+            <section class="admin-section" id="section-analytics">
+                <div class="section-head"><div><h1>Analytics Dashboard</h1><p>Usage trends, participation trends, and role distribution.</p></div></div>
+                <div class="chart-grid">
+                    <section class="panel-card"><div class="panel-title"><h2>User Growth</h2></div><div class="bars" id="user-growth-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>Submission Trend</h2></div><div class="bars" id="submission-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>Contest Participation</h2></div><div class="bars" id="contest-chart"></div></section>
+                    <section class="panel-card"><div class="panel-title"><h2>Role Breakdown</h2></div><div class="stack-list" id="role-breakdown"></div></section>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-submissions">
+                <div class="section-head"><div><h1>Submissions Monitor</h1><p>Filter submissions and spot abnormal activity patterns.</p></div></div>
+                <div class="toolbar">
+                    <input id="sub-user" class="form-input" placeholder="User/email" oninput="debounce(loadSubmissions,350)()">
+                    <input id="sub-problem" class="form-input" placeholder="Problem" oninput="debounce(loadSubmissions,350)()">
+                    <select id="sub-status" class="form-input" onchange="loadSubmissions()"><option value="">All statuses</option><option>Accepted</option><option>Wrong Answer</option><option>Runtime Error</option><option>Time Limit Exceeded</option><option>Compilation Error</option></select>
+                </div>
+                <div class="table-wrap"><table><thead><tr><th>#</th><th>User</th><th>Problem</th><th>Status</th><th>Language</th><th>Runtime</th><th>Contest</th><th>When</th></tr></thead><tbody id="subs-body"></tbody></table></div>
+            </section>
+
+            <section class="admin-section" id="section-logs">
+                <div class="section-head"><div><h1>System Logs / Activity</h1><p>Admin actions, login events, contest activity, and audit trail.</p></div><button class="btn-outline" onclick="loadLogs()">Refresh</button></div>
+                <div class="activity-list" id="logs-list"></div>
+            </section>
+
+            <section class="admin-section" id="section-settings">
+                <div class="section-head"><div><h1>System Settings</h1><p>Operational status and platform configuration surface.</p></div></div>
+                <section class="panel-card">
+                    <div class="setting-row"><strong>Admin Isolation</strong><span>Admin panel uses dedicated middleware and admin-only APIs.</span></div>
+                    <div class="setting-row"><strong>Contest Engine</strong><span>Read-only monitoring from this hub unless explicit admin lifecycle action is selected.</span></div>
+                    <div class="setting-row"><strong>System Health</strong><span id="settings-health">Loading health status...</span></div>
+                </section>
+            </section>
         </div>
-    </div>
-
-    <div class="tabs fade-up fade-up-2">
-        <button class="tab-btn active" onclick="switchTab('users',this)">Users</button>
-        <button class="tab-btn" onclick="switchTab('problems',this)">Problems</button>
-        <button class="tab-btn" onclick="switchTab('submissions',this)">Submissions</button>
-    </div>
-
-    <!-- USERS TAB -->
-    <div class="tab-pane active" id="tab-users">
-        <div class="search-row">
-            <input type="text" id="user-search" class="form-input" placeholder="Search users…"
-                   oninput="debounce(loadUsers,350)()">
-        </div>
-        <div class="table-wrap">
-            <table>
-                <thead><tr>
-                    <th>ID</th><th>Username</th><th>Email</th><th>Role</th>
-                    <th>Status</th><th>Skill Rating</th><th>Contest Rating</th><th>Joined</th><th>Action</th>
-                </tr></thead>
-                <tbody id="users-body">
-                    <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="pagination" id="users-pagination"></div>
-    </div>
-
-    <!-- PROBLEMS TAB -->
-    <div class="tab-pane" id="tab-problems">
-        <button class="btn-primary" style="margin-bottom:20px" onclick="showProblemForm()">+ New Problem</button>
-        <div class="table-wrap" id="problems-table-wrap">
-            <table>
-                <thead><tr>
-                    <th>ID</th><th>Title</th><th>Difficulty</th><th>Submissions</th><th>Public</th><th>Actions</th>
-                </tr></thead>
-                <tbody id="problems-body">
-                    <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Problem Form -->
-        <div id="problem-form-wrap" style="display:none;margin-top:24px">
-            <div class="card">
-                <h3 id="form-title" style="margin-bottom:20px">New Problem</h3>
-                <input type="hidden" id="problem-id" value="">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" id="p-title" class="form-input" placeholder="Two Sum">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Difficulty *</label>
-                        <select id="p-difficulty" class="form-input">
-                            <option>Easy</option><option>Medium</option><option>Hard</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Description *</label>
-                    <textarea id="p-desc" class="form-input form-textarea" rows="5" placeholder="Problem statement…"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Examples (JSON array or plain text)</label>
-                    <textarea id="p-examples" class="form-input" rows="3"
-                        placeholder='[{"input":"1 2","output":"3","explanation":"1+2=3"}]'></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Constraints</label>
-                    <textarea id="p-constraints" class="form-input" rows="2" placeholder="1 ≤ n ≤ 10^5"></textarea>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Tags (comma-separated)</label>
-                        <input type="text" id="p-tags" class="form-input" placeholder="array,hash-table">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Roadmap Day (leave blank if not on roadmap)</label>
-                        <input type="number" id="p-roadmap-day" class="form-input" placeholder="1-30" min="1" max="30">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Hint Tier 1</label>
-                    <textarea id="p-hint1" class="form-input" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Hint Tier 2</label>
-                    <textarea id="p-hint2" class="form-input" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Hint Tier 3</label>
-                    <textarea id="p-hint3" class="form-input" rows="2"></textarea>
-                </div>
-
-                <!-- Test Cases -->
-                <div class="form-group">
-                    <label class="form-label" style="margin-bottom:10px">Test Cases</label>
-                    <div class="tc-list" id="tc-list"></div>
-                    <button class="btn-outline btn-sm" onclick="addTestCase()">+ Add Test Case</button>
-                </div>
-
-                <div style="display:flex; gap:12px; align-items:center; margin-top:8px">
-                    <button class="btn-primary" onclick="saveProblem()">Save Problem</button>
-                    <button class="btn-outline" onclick="hideProblemForm()">Cancel</button>
-                    <div id="form-msg" style="font-size:.88rem"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SUBMISSIONS TAB -->
-    <div class="tab-pane" id="tab-submissions">
-        <div class="filter-row">
-            <input id="sub-user" class="form-input" placeholder="Filter by user/email" oninput="debounce(loadAdminSubs,350)()">
-            <input id="sub-problem" class="form-input" placeholder="Filter by problem" oninput="debounce(loadAdminSubs,350)()">
-            <select id="sub-status" class="form-input" onchange="loadAdminSubs()">
-                <option value="">All Statuses</option>
-                <option>Accepted</option>
-                <option>Wrong Answer</option>
-                <option>Runtime Error</option>
-                <option>Time Limit Exceeded</option>
-                <option>Compilation Error</option>
-            </select>
-        </div>
-        <div class="table-wrap">
-            <table>
-                <thead><tr>
-                    <th>#</th><th>User</th><th>Problem</th><th>Status</th><th>Language</th><th>Runtime</th><th>When</th><th>Debug</th>
-                </tr></thead>
-                <tbody id="admin-subs-body">
-                    <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-</div>
+    </main>
 </div>
 
 <script src="/code-arena/assets/js/main.js"></script>
 <script>
 const CURRENT_ADMIN_ID = <?= json_encode($currentAdminId) ?>;
+const loadedSections = new Set();
 
-async function loadDashboard() {
+function showSection(name) {
+    document.querySelectorAll('.admin-section').forEach(section => section.classList.remove('active'));
+    document.querySelectorAll('.admin-nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.section === name));
+    document.getElementById(`section-${name}`).classList.add('active');
+    if (!loadedSections.has(name)) {
+        ({ overview: loadOverview, users: loadUsers, organizations: loadOrganizations, contests: loadContests,
+           problems: loadProblems, analytics: loadAnalytics, submissions: loadSubmissions, logs: loadLogs,
+           settings: loadOverview }[name] || (() => {}))();
+        loadedSections.add(name);
+    }
+}
+
+function debounce(fn, d) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), d); }; }
+function safeText(value) { return escHtml(value ?? '-'); }
+function globalSearch(event) {
+    if (event.key !== 'Enter') return;
+    const q = document.getElementById('global-search').value.trim();
+    if (!q) return;
+    document.getElementById('user-search').value = q;
+    showSection('users');
+    loadUsers();
+}
+
+async function loadOverview() {
     const { ok, data } = await api('/code-arena/api/admin/dashboard.php');
-    const list = document.getElementById('activity-list');
-    if (!ok || !data.success) {
-        list.innerHTML = `<div class="activity-item" style="color:var(--red)">${data.message || 'Failed to load activity'}</div>`;
-        return;
-    }
-    const rows = data.data.recent_activity || [];
-    if (!rows.length) {
-        list.innerHTML = '<div class="activity-item">No recent audit activity yet.</div>';
-        return;
-    }
-    list.innerHTML = rows.map(a => `
-        <div class="activity-item">
-            ${escHtml(a.event)}
-            <span>${a.ip_address || 'local'} · ${timeAgo(a.created_at)}</span>
-        </div>
-    `).join('');
+    if (!ok || !data.success) { toast(data.message || 'Failed to load dashboard', 'error'); return; }
+    const s = data.data.stats || {};
+    const live = await api('/code-arena/api/admin/contests.php?status=active');
+    const liveCount = live.ok && live.data.success ? live.data.data.contests.length : 0;
+    const health = [
+        { label:'API', value:'Operational' },
+        { label:'Database', value:'Connected' },
+        { label:'Live Contests', value:String(liveCount) },
+        { label:'Blocked Users', value:String(s.blocked_users || 0) },
+    ];
+    document.getElementById('overview-metrics').innerHTML = [
+        ['Total Users', s.total_users || 0], ['Active Users', s.active_users_7d || 0],
+        ['Total Contests', s.total_contests || 0], ['Live Contests', liveCount],
+        ['Total Submissions', s.total_submissions || 0], ['System Health', 'OK'],
+    ].map(([label,value]) => `<div class="metric-card"><strong>${value}</strong><span>${label}</span></div>`).join('');
+    document.getElementById('health-list').innerHTML = health.map(h => `<div class="list-item"><strong>${h.label}</strong><span>${h.value}</span></div>`).join('');
+    document.getElementById('settings-health').textContent = `Operational · ${s.total_users || 0} users · ${s.total_submissions || 0} submissions`;
+    renderActivity('overview-activity', data.data.recent_activity || []);
 }
 
-// ── Tab switching ─────────────────────────────────────────────
-function switchTab(name, btn) {
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`tab-${name}`).classList.add('active');
-    btn.classList.add('active');
-    if (name === 'users')       loadUsers();
-    if (name === 'problems')    loadAdminProblems();
-    if (name === 'submissions') loadAdminSubs();
+function renderActivity(id, rows) {
+    const el = document.getElementById(id);
+    if (!rows.length) { el.innerHTML = '<div class="activity-item">No activity yet.</div>'; return; }
+    el.innerHTML = rows.map(row => `<div class="activity-item">${safeText(row.event || row.action)}<span>${safeText(row.actor || row.ip_address || 'system')} · ${timeAgo(row.created_at)}</span></div>`).join('');
 }
 
-function debounce(fn, d) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), d); }; }
-
-// ── Users ─────────────────────────────────────────────────────
-let userPage = 1;
-async function loadUsers(page = 1) {
-    userPage = page;
-    const search = document.getElementById('user-search').value.trim();
-    const params = new URLSearchParams({ page });
-    if (search) params.set('search', search);
-
-    const { ok, data } = await api(`/code-arena/api/admin/users.php?${params}`);
-    const tbody = document.getElementById('users-body');
-    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
-
-    const users = data.data.users;
-    const adminCount = data.data.totalAdmins;
-    tbody.innerHTML = users.map(u => {
-        const isSelf       = u.id === CURRENT_ADMIN_ID;
-        const isLastAdmin  = u.role === 'admin' && adminCount === 1;
-        const disableRole  = isSelf || isLastAdmin;
-        const disableDel   = isSelf || isLastAdmin;
-        const roleTitle    = isSelf ? 'You cannot modify your own account.'
-                           : isLastAdmin ? 'Cannot demote the last admin account.' : '';
-        const delTitle     = isSelf ? 'You cannot delete your own account.'
-                           : isLastAdmin ? 'Cannot delete the last admin account.' : '';
-        return `
-        <tr>
-            <td>${u.id}</td>
-            <td><a href="/code-arena/profile.php?user=${u.username}">${u.username}</a></td>
-            <td style="font-size:.82rem;color:var(--text-muted)">${u.email}</td>
-            <td>
-                <select class="role-select" onchange="updateRole(${u.id},this.value)"
-                    ${disableRole ? `disabled title="${roleTitle}"` : ''}>
-                    ${['student','instructor','admin'].map(r =>
-                        `<option ${u.role===r?'selected':''}>${r}</option>`).join('')}
-                </select>
-                ${disableRole ? `<span style="font-size:.75rem;color:var(--text-muted);display:block;margin-top:2px">${roleTitle}</span>` : ''}
-            </td>
+async function loadUsers() {
+    const search = document.getElementById('user-search')?.value.trim() || '';
+    const { ok, data } = await api(`/code-arena/api/admin/users.php?search=${encodeURIComponent(search)}`);
+    const body = document.getElementById('users-body');
+    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="9">${safeText(data.message)}</td></tr>`; return; }
+    const adminCount = data.data.totalAdmins || 0;
+    body.innerHTML = (data.data.users || []).map(u => {
+        const isSelf = Number(u.id) === Number(CURRENT_ADMIN_ID);
+        const isLastAdmin = u.role === 'admin' && adminCount === 1;
+        return `<tr>
+            <td>${u.id}</td><td><a href="/code-arena/profile.php?user=${encodeURIComponent(u.username)}">${safeText(u.username)}</a></td>
+            <td>${safeText(u.email)}</td>
+            <td><select class="role-select" onchange="updateRole(${u.id},this.value)" ${isSelf || isLastAdmin ? 'disabled' : ''}>${['student','user','instructor','org_admin','admin'].map(r => `<option ${u.role===r?'selected':''}>${r}</option>`).join('')}</select></td>
             <td>${Number(u.is_blocked) ? '<span style="color:var(--red)">Blocked</span>' : '<span style="color:var(--accent)">Active</span>'}</td>
-            <td style="color:var(--accent)">${u.skill_rating || 1200}</td>
-            <td style="color:var(--yellow)">${u.contest_rating || 1200}</td>
-            <td style="font-size:.8rem;color:var(--text-muted)">${timeAgo(u.created_at)}</td>
-            <td>
-                ${Number(u.is_blocked)
-                    ? `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id}, false)" ${isSelf ? 'disabled' : ''}>Unblock</button>`
-                    : `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id}, true)" ${isSelf ? 'disabled' : ''}>Block</button>`}
-                <button class="btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.username}')"
-                    ${disableDel ? `disabled title="${delTitle}"` : ''}
-                    ${disableDel ? 'style="opacity:.45;cursor:not-allowed"' : ''}>Delete</button>
-            </td>
+            <td>${u.skill_rating || 1200}</td><td>${u.contest_rating || 1200}</td><td>${timeAgo(u.created_at)}</td>
+            <td>${Number(u.is_blocked) ? `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id},false)" ${isSelf?'disabled':''}>Unban</button>` : `<button class="btn-outline btn-sm" onclick="toggleBlock(${u.id},true)" ${isSelf?'disabled':''}>Ban</button>`}</td>
         </tr>`;
     }).join('');
 }
-
-async function toggleBlock(id, block) {
-    const { ok, data } = await api('/code-arena/api/admin/users.php', {
-        method: 'PUT',
-        body: JSON.stringify({ id, action: block ? 'block' : 'unblock' }),
-    });
-    toast(data.message || (ok ? 'Updated' : 'Failed'), ok ? 'success' : 'error');
-    if (ok) loadUsers(userPage);
-}
-
 async function updateRole(id, role) {
-    const { ok, data } = await api('/code-arena/api/admin/users.php', {
-        method: 'PUT', body: JSON.stringify({ id, role }),
-    });
-    toast(data.message || (ok ? 'Updated' : 'Failed'), ok ? 'success' : 'error');
+    const { ok, data } = await api('/code-arena/api/admin/users.php', { method:'PUT', body:JSON.stringify({ id, role }) });
+    toast(data.message || 'Updated', ok ? 'success' : 'error');
+}
+async function toggleBlock(id, block) {
+    const { ok, data } = await api('/code-arena/api/admin/users.php', { method:'PUT', body:JSON.stringify({ id, action:block ? 'block' : 'unblock' }) });
+    toast(data.message || 'Updated', ok ? 'success' : 'error');
+    if (ok) loadUsers();
 }
 
-async function deleteUser(id, username) {
-    if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
-    const { ok, data } = await api('/code-arena/api/admin/users.php', {
-        method: 'DELETE', body: JSON.stringify({ id }),
-    });
-    toast(data.message, ok ? 'success' : 'error');
-    if (ok) loadUsers(userPage);
+async function loadOrganizations() {
+    const q = document.getElementById('org-search')?.value.trim() || '';
+    const { ok, data } = await api(`/code-arena/api/admin/organizations.php?search=${encodeURIComponent(q)}`);
+    const body = document.getElementById('orgs-body');
+    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="7">${safeText(data.message)}</td></tr>`; return; }
+    body.innerHTML = (data.data.organizations || []).map(o => `<tr>
+        <td>${o.id}</td><td>${safeText(o.name)}</td><td>${safeText(o.type)}</td><td>${safeText(o.owner_username)}<div style="color:var(--text-muted);font-size:.78rem">${safeText(o.owner_email)}</div></td>
+        <td>${o.member_count || 0}</td><td>${o.contest_count || 0}</td><td>${timeAgo(o.created_at)}</td>
+    </tr>`).join('');
 }
 
-// ── Problems ──────────────────────────────────────────────────
-async function loadAdminProblems() {
+async function loadContests() {
+    const q = document.getElementById('contest-search')?.value.trim() || '';
+    const status = document.getElementById('contest-status')?.value || '';
+    const { ok, data } = await api(`/code-arena/api/admin/contests.php?search=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`);
+    const body = document.getElementById('contests-body');
+    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="8">${safeText(data.message)}</td></tr>`; return; }
+    body.innerHTML = (data.data.contests || []).map(c => `<tr>
+        <td>${c.id}</td><td><a href="/code-arena/contest.php?id=${c.id}">${safeText(c.title)}</a></td><td>${safeText(c.status)}</td>
+        <td>${safeText(c.creator_username)}</td><td>${c.participants || 0}</td><td>${c.submissions || 0}</td>
+        <td>${safeText(c.start_time)}<div style="color:var(--text-muted);font-size:.78rem">${safeText(c.end_time)}</div></td>
+        <td><a class="btn-outline btn-sm" href="/code-arena/contest_manage.php?id=${c.id}">Manage</a> ${c.status !== 'ended' ? `<button class="btn-outline btn-sm" onclick="endContest(${c.id})">End</button>` : ''}</td>
+    </tr>`).join('');
+}
+async function endContest(id) {
+    if (!confirm('End this contest now?')) return;
+    const { ok, data } = await api('/code-arena/api/admin/contests.php', { method:'PUT', body:JSON.stringify({ id, action:'end' }) });
+    toast(data.message || 'Updated', ok ? 'success' : 'error');
+    if (ok) loadContests();
+}
+
+async function loadProblems() {
     const { ok, data } = await api('/code-arena/api/admin/problems.php');
-    const tbody = document.getElementById('problems-body');
-    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
-
-    const problems = data.data.problems || [];
-    if (!problems.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px">No problems yet.</td></tr>`;
-        return;
-    }
-    tbody.innerHTML = problems.map(p => `
-        <tr>
-            <td>${p.id}</td>
-            <td><a href="/code-arena/problem.php?slug=${p.slug}" target="_blank">${p.title}</a></td>
-            <td>${difficultyBadge(p.difficulty)}</td>
-            <td>${p.total_submissions}</td>
-            <td>${p.is_public ? '<span style="color:var(--accent)">Yes</span>' : '<span style="color:var(--text-muted)">No</span>'}</td>
-            <td>
-                <button class="btn-outline btn-sm" onclick="editProblem(${p.id})">Edit</button>
-                <a class="btn-outline btn-sm" href="/code-arena/editorial_manage.php?problem_id=${p.id}">Editorial</a>
-                <button class="btn-danger btn-sm" onclick="deleteProblem(${p.id},'${p.title.replace(/'/g,'')}')">Del</button>
-            </td>
-        </tr>`).join('');
+    const body = document.getElementById('problems-body');
+    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="6">${safeText(data.message)}</td></tr>`; return; }
+    body.innerHTML = (data.data.problems || []).map(p => `<tr>
+        <td>${p.id}</td><td><a href="/code-arena/problem.php?slug=${p.slug}">${safeText(p.title)}</a></td><td>${difficultyBadge(p.difficulty)}</td>
+        <td>${p.total_submissions || 0}</td><td>${Number(p.is_public) ? 'Yes' : 'No'}</td>
+        <td><a class="btn-outline btn-sm" href="/code-arena/editorial_manage.php?problem_id=${p.id}">Editorial</a></td>
+    </tr>`).join('');
 }
 
-let testCaseCount = 0;
-function showProblemForm(reset = true) {
-    if (reset) {
-        document.getElementById('problem-id').value = '';
-        document.getElementById('form-title').textContent = 'New Problem';
-        ['p-title','p-tags','p-roadmap-day','p-hint1','p-hint2','p-hint3','p-examples','p-constraints','p-desc'].forEach(id => {
-            document.getElementById(id).value = '';
-        });
-        document.getElementById('p-difficulty').value = 'Easy';
-        document.getElementById('tc-list').innerHTML = '';
-        testCaseCount = 0;
-        addTestCase();
-    }
-    document.getElementById('problem-form-wrap').style.display = 'block';
-    document.getElementById('problem-form-wrap').scrollIntoView({ behavior:'smooth' });
+async function loadAnalytics() {
+    const { ok, data } = await api('/code-arena/api/admin/analytics.php');
+    if (!ok || !data.success) { toast(data.message || 'Failed to load analytics', 'error'); return; }
+    renderBars('user-growth-chart', data.data.user_growth || [], 'count');
+    renderBars('submission-chart', data.data.submission_trend || [], 'count');
+    renderBars('contest-chart', data.data.contest_trend || [], 'participants');
+    document.getElementById('role-breakdown').innerHTML = (data.data.role_breakdown || []).map(r => `<div class="list-item"><strong>${safeText(r.role)}</strong><span>${r.count} accounts</span></div>`).join('');
+}
+function renderBars(id, rows, key) {
+    const lastRows = rows.slice(-10);
+    const max = Math.max(1, ...lastRows.map(r => Number(r[key] || 0)));
+    document.getElementById(id).innerHTML = lastRows.length ? lastRows.map(r => `<div class="bar" title="${safeText(r.day)}: ${r[key] || 0}" style="height:${Math.max(6, Math.round(Number(r[key] || 0) / max * 100))}%"></div>`).join('') : '<div style="color:var(--text-muted)">No data yet.</div>';
 }
 
-function hideProblemForm() {
-    document.getElementById('problem-form-wrap').style.display = 'none';
-}
-
-function addTestCase(inputVal = '', outputVal = '') {
-    testCaseCount++;
-    const div = document.createElement('div');
-    div.className = 'tc-item';
-    div.id = `tc-${testCaseCount}`;
-    div.innerHTML = `
-        <div>
-            <label class="form-label" style="margin-bottom:4px">Input ${testCaseCount}</label>
-            <textarea class="form-input tc-input" placeholder="stdin input"></textarea>
-        </div>
-        <div>
-            <label class="form-label" style="margin-bottom:4px">Expected Output ${testCaseCount}</label>
-            <textarea class="form-input tc-output" placeholder="expected stdout"></textarea>
-        </div>
-        <button class="btn-danger btn-sm" style="margin-top:22px" onclick="this.closest('.tc-item').remove()">×</button>`;
-    document.getElementById('tc-list').appendChild(div);
-    // Set values after appending so the textareas exist in the DOM
-    div.querySelector('.tc-input').value  = inputVal;
-    div.querySelector('.tc-output').value = outputVal;
-}
-
-async function editProblem(id) {
-    const { ok, data } = await api(`/code-arena/api/admin/problems.php?id=${id}`);
-    if (!ok || !data.success) { toast(data.message || 'Failed to load problem', 'error'); return; }
-
-    const p = data.data;
-
-    // Pre-fill all text fields
-    document.getElementById('problem-id').value        = p.id;
-    document.getElementById('form-title').textContent  = `Edit Problem #${p.id}`;
-    document.getElementById('p-title').value           = p.title        || '';
-    document.getElementById('p-difficulty').value      = p.difficulty   || 'Easy';
-    document.getElementById('p-desc').value            = p.description  || '';
-    document.getElementById('p-examples').value        = p.examples     || '';
-    document.getElementById('p-constraints').value     = p.constraints  || '';
-    document.getElementById('p-tags').value            = p.tags         || '';
-    document.getElementById('p-roadmap-day').value     = p.roadmap_day  || '';
-    document.getElementById('p-hint1').value           = p.hint_tier1   || '';
-    document.getElementById('p-hint2').value           = p.hint_tier2   || '';
-    document.getElementById('p-hint3').value           = p.hint_tier3   || '';
-
-    // Re-populate test cases
-    document.getElementById('tc-list').innerHTML = '';
-    testCaseCount = 0;
-    let tcs = [];
-    try { tcs = JSON.parse(p.test_cases || '[]'); } catch(e) {}
-    if (tcs.length) {
-        tcs.forEach(tc => addTestCase(tc.input ?? '', tc.expected_output ?? ''));
-    } else {
-        addTestCase();
-    }
-
-    showProblemForm(false);
-    toast(`Loaded "${p.title}" for editing`, 'info');
-}
-
-async function saveProblem() {
-    const pid = document.getElementById('problem-id').value;
-
-    // Collect test cases
-    const testCases = [];
-    document.querySelectorAll('#tc-list .tc-item').forEach(item => {
-        const inp = item.querySelector('.tc-input').value.trim();
-        const out = item.querySelector('.tc-output').value.trim();
-        if (inp !== '' || out !== '') testCases.push({ input: inp, expected_output: out });
-    });
-
-    const payload = {
-        title:        document.getElementById('p-title').value.trim(),
-        difficulty:   document.getElementById('p-difficulty').value,
-        description:  document.getElementById('p-desc').value.trim(),
-        examples:     document.getElementById('p-examples').value.trim(),
-        constraints:  document.getElementById('p-constraints').value.trim(),
-        tags:         document.getElementById('p-tags').value.trim(),
-        roadmap_day:  document.getElementById('p-roadmap-day').value || null,
-        hint_tier1:   document.getElementById('p-hint1').value.trim() || null,
-        hint_tier2:   document.getElementById('p-hint2').value.trim() || null,
-        hint_tier3:   document.getElementById('p-hint3').value.trim() || null,
-        test_cases:   testCases,
-        is_public:    1,
-    };
-
-    if (pid) payload.id = parseInt(pid);
-
-    const msg = document.getElementById('form-msg');
-    msg.textContent = 'Saving…';
-    msg.style.color = 'var(--text-muted)';
-
-    const { ok, data } = await api('/code-arena/api/admin/problems.php', {
-        method: pid ? 'PUT' : 'POST',
-        body: JSON.stringify(payload),
-    });
-
-    if (ok && data.success) {
-        msg.textContent = data.message;
-        msg.style.color = 'var(--accent)';
-        toast(data.message, 'success');
-        loadAdminProblems();
-        setTimeout(() => { hideProblemForm(); msg.textContent=''; }, 1500);
-    } else {
-        msg.textContent = data.message || 'Failed';
-        msg.style.color = 'var(--red)';
-        toast(data.message || 'Failed', 'error');
-    }
-}
-
-async function deleteProblem(id, title) {
-    if (!confirm(`Delete problem "${title}"?`)) return;
-    const { ok, data } = await api('/code-arena/api/admin/problems.php', {
-        method: 'DELETE', body: JSON.stringify({ id }),
-    });
-    toast(data.message, ok ? 'success' : 'error');
-    if (ok) loadAdminProblems();
-}
-
-// ── Admin submissions ─────────────────────────────────────────
-async function loadAdminSubs() {
+async function loadSubmissions() {
     const params = new URLSearchParams({ page: 1 });
-    const user = document.getElementById('sub-user')?.value.trim();
-    const problem = document.getElementById('sub-problem')?.value.trim();
-    const status = document.getElementById('sub-status')?.value;
-    if (user) params.set('user', user);
-    if (problem) params.set('problem', problem);
-    if (status) params.set('status', status);
-
+    const u = document.getElementById('sub-user')?.value.trim();
+    const p = document.getElementById('sub-problem')?.value.trim();
+    const s = document.getElementById('sub-status')?.value;
+    if (u) params.set('user', u); if (p) params.set('problem', p); if (s) params.set('status', s);
     const { ok, data } = await api(`/code-arena/api/admin/submissions.php?${params}`);
-    const tbody = document.getElementById('admin-subs-body');
-    if (!ok || !data.success) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:40px">${data.message}</td></tr>`; return; }
+    const body = document.getElementById('subs-body');
+    if (!ok || !data.success) { body.innerHTML = `<tr><td colspan="8">${safeText(data.message)}</td></tr>`; return; }
+    body.innerHTML = (data.data.submissions || []).map(s => `<tr>
+        <td>#${s.id}</td><td>${safeText(s.username)}</td><td>${safeText(s.problem_title)}</td><td>${statusBadge(s.status)}</td>
+        <td>${safeText(s.language)}</td><td>${s.runtime_ms ? s.runtime_ms + 'ms' : '-'}</td><td>${s.contest_id || '-'}</td><td>${timeAgo(s.submitted_at)}</td>
+    </tr>`).join('');
+}
 
-    const subs = data.data.submissions;
-    if (!subs.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:40px">No submissions found.</td></tr>`;
-        return;
-    }
-    tbody.innerHTML = subs.map(s => `
-        <tr>
-            <td class="mono" style="font-size:.82rem">#${s.id}</td>
-            <td><a href="/code-arena/profile.php?user=${s.username}">${s.username}</a></td>
-            <td><a href="/code-arena/problem.php?slug=${s.problem_slug}">${s.problem_title}</a></td>
-            <td>${statusBadge(s.status)}</td>
-            <td style="font-size:.82rem">${langName(s.language)}</td>
-            <td style="font-size:.82rem;color:var(--text-muted)">${s.runtime_ms ? s.runtime_ms + 'ms' : '-'}</td>
-            <td style="font-size:.82rem;color:var(--text-muted)">${timeAgo(s.submitted_at)}</td>
-            <td><a class="btn-outline btn-sm" href="/code-arena/submissions.php" title="Open submissions page">Debug</a></td>
-        </tr>`).join('');
+async function loadLogs() {
+    const { ok, data } = await api('/code-arena/api/admin/logs.php');
+    if (!ok || !data.success) { toast(data.message || 'Failed to load logs', 'error'); return; }
+    renderActivity('logs-list', data.data.logs || []);
 }
 
 function escHtml(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
-// Init
-loadDashboard();
-loadUsers();
+loadOverview();
+loadedSections.add('overview');
 </script>
 </body>
 </html>
