@@ -11,7 +11,7 @@ requireInstructor();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Instructor — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
         @media(max-width:700px) { .form-grid { grid-template-columns:1fr; } }

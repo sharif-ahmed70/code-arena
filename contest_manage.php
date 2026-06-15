@@ -14,7 +14,7 @@ if (!$contestId) { header('Location: /code-arena/contests.php'); exit; }
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Contest - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .manager-grid { display:grid; grid-template-columns: 380px 1fr; gap:24px; align-items:start; }
         @media(max-width:900px){ .manager-grid { grid-template-columns:1fr; } }

@@ -31,7 +31,7 @@ if ($method === 'POST') {
 
     if (!$identifier || !$password) err('Identifier and password are required');
 
-    enforceRateLimit($pdo, rateLimitKey('admin_login', $identifier), 6, 15 * 60);
+    $adminLoginRateKey = rateLimitKey('admin_login', $identifier);
 
     $stmt = $pdo->prepare(
         'SELECT id, username, email, password, role, COALESCE(is_blocked, 0) AS is_blocked
@@ -42,12 +42,14 @@ if ($method === 'POST') {
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password'])) {
+        enforceRateLimit($pdo, $adminLoginRateKey, 6, 15 * 60);
         appLog($pdo, 'admin_login_failed', ['identifier' => $identifier]);
         err('Invalid admin credentials', 401);
     }
     if ($user['role'] !== 'admin') err('Admin access required', 403);
     if ((int)$user['is_blocked'] === 1) err('This admin account is blocked', 403);
 
+    clearRateLimit($pdo, $adminLoginRateKey);
     loginUser($user);
     appLog($pdo, 'admin_login_success', ['admin_id' => (int)$user['id']]);
 

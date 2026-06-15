@@ -11,7 +11,7 @@ requireLogin();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Submissions — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .filters { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; align-items:center; }
         .filter-select { padding:9px 14px; background:var(--bg-card); border:1px solid var(--border);

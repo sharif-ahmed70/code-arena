@@ -24,9 +24,19 @@ function isLoggedIn(): bool {
 function requireLogin(): void {
     if (!isLoggedIn()) {
         if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/api/')) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
             http_response_code(401);
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Login required']);
+            echo json_encode([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Login required',
+                'verdict' => 'AUTH_REQUIRED',
+                'passed' => 0,
+                'total' => 0,
+            ], JSON_UNESCAPED_SLASHES);
             exit;
         }
         safeRedirect('/code-arena/login.php');
@@ -77,7 +87,7 @@ function currentUsername(): ?string {
 }
 function currentRole(): ?string {
     if (isRealAdmin()) {
-        $context = adminViewContext();
+        $context = adminViewMode();
         if ($context === 'user') return 'user';
         if ($context === 'org') return 'org_admin';
     }
@@ -89,20 +99,40 @@ function isRealAdmin(): bool {
 function realRole(): ?string {
     return $_SESSION['role'] ?? null;
 }
-function adminViewContext(): string {
+function adminViewMode(): string {
     if (!isRealAdmin()) return '';
-    $context = $_SESSION['admin_view_context'] ?? 'admin';
-    return in_array($context, ['admin', 'user', 'org'], true) ? $context : 'admin';
+    $mode = $_SESSION['view_mode'] ?? ($_SESSION['admin_view_context'] ?? 'admin');
+    return in_array($mode, ['admin', 'user', 'org'], true) ? $mode : 'admin';
 }
-function setAdminViewContext(string $context): void {
+function adminViewContext(): string {
+    return adminViewMode();
+}
+function adminViewOrgId(): ?int {
+    if (!isRealAdmin() || adminViewMode() !== 'org') return null;
+    return isset($_SESSION['view_org_id']) ? (int)$_SESSION['view_org_id'] : null;
+}
+function adminViewUserId(): ?int {
+    if (!isRealAdmin() || adminViewMode() !== 'user') return null;
+    return isset($_SESSION['view_user_id']) ? (int)$_SESSION['view_user_id'] : null;
+}
+function setAdminViewContext(string $context, ?int $orgId = null, ?int $userId = null): void {
     if (!isRealAdmin()) return;
-    $_SESSION['admin_view_context'] = in_array($context, ['admin', 'user', 'org'], true) ? $context : 'admin';
+    $mode = in_array($context, ['admin', 'user', 'org'], true) ? $context : 'admin';
+    $_SESSION['view_mode'] = $mode;
+    $_SESSION['admin_view_context'] = $mode;
+    unset($_SESSION['view_org_id'], $_SESSION['view_user_id']);
+    if ($mode === 'org' && $orgId) {
+        $_SESSION['view_org_id'] = $orgId;
+    }
+    if ($mode === 'user' && $userId) {
+        $_SESSION['view_user_id'] = $userId;
+    }
 }
 function clearAdminViewContext(): void {
-    unset($_SESSION['admin_view_context']);
+    unset($_SESSION['admin_view_context'], $_SESSION['view_mode'], $_SESSION['view_org_id'], $_SESSION['view_user_id']);
 }
 function isAdmin(): bool {
-    return isRealAdmin() && adminViewContext() === 'admin';
+    return isRealAdmin() && adminViewMode() === 'admin';
 }
 function isInstructor(): bool {
     return in_array(currentRole() ?? '', ['admin', 'instructor', 'org_admin'], true);
@@ -111,10 +141,10 @@ function isOrgAdmin(): bool {
     return ($_SESSION['role'] ?? '') === 'org_admin';
 }
 function isAdminOrgView(): bool {
-    return isRealAdmin() && adminViewContext() === 'org';
+    return isRealAdmin() && adminViewMode() === 'org';
 }
 function isAdminUserView(): bool {
-    return isRealAdmin() && adminViewContext() === 'user';
+    return isRealAdmin() && adminViewMode() === 'user';
 }
 function canAccessOrganizationDashboard(): bool {
     return isOrgAdmin() || isAdminOrgView();

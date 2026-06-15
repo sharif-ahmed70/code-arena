@@ -15,7 +15,7 @@ if (isLoggedIn()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .auth-card { max-width: 620px; }
         .step-label { color:var(--text-muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin:18px 0 10px; }

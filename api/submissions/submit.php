@@ -1,4 +1,48 @@
 <?php
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ob_start();
+set_exception_handler(function (Throwable $e): void {
+    error_log('[CodeArenaSubmitException] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => 'Judge execution failed',
+        'verdict' => 'SYSTEM_ERROR',
+        'passed' => 0,
+        'total' => 0,
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+});
+register_shutdown_function(function (): void {
+    $error = error_get_last();
+    if (!$error || !in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    error_log('[CodeArenaSubmitFatal] ' . json_encode($error, JSON_UNESCAPED_SLASHES));
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => 'Judge execution failed',
+        'verdict' => 'SYSTEM_ERROR',
+        'passed' => 0,
+        'total' => 0,
+    ], JSON_UNESCAPED_SLASHES);
+});
 // ============================================================
 //  CODE ARENA — Submit Solution  (HIGH effort)
 //  POST /api/submissions/submit.php
@@ -72,8 +116,18 @@ $stmt->execute([$problemId]);
 $problem = $stmt->fetch();
 if (!$problem) err('Problem not found', 404);
 
-$testCases = json_decode($problem['test_cases'] ?? '[]', true);
-if (!is_array($testCases)) err('Problem test cases are invalid', 500);
+$testCases = loadProblemTestCases($pdo, $problemId, $problem['test_cases'] ?? null);
+error_log('[CodeArenaSubmit] payload ' . json_encode([
+    'user_id' => $userId,
+    'problem_id' => $problemId,
+    'contest_id' => $contestId,
+    'language' => $language,
+    'code_bytes' => strlen($code),
+    'test_case_count' => count($testCases),
+], JSON_UNESCAPED_SLASHES));
+if (empty($testCases)) {
+    err('No test cases are configured for this problem. Please contact an admin.', 500);
+}
 if (count($testCases) > 50) err('Too many test cases configured for this problem', 500);
 
 // Normal contest submissions must belong to an active contest and a registered
@@ -108,6 +162,15 @@ $hintsUsed  = (int) max(
 
 // ── Judge ────────────────────────────────────────────────────
 $judgeResult = judgeSubmission($code, $language, $testCases);
+error_log('[CodeArenaSubmit] judge_result ' . json_encode([
+    'problem_id' => $problemId,
+    'contest_id' => $contestId,
+    'verdict' => $judgeResult['verdict'] ?? null,
+    'passed' => $judgeResult['passed'] ?? null,
+    'total' => $judgeResult['total'] ?? null,
+    'runtime_ms' => $judgeResult['runtime_ms'] ?? null,
+    'error' => $judgeResult['error'] ?? '',
+], JSON_UNESCAPED_SLASHES));
 
 $verdict   = $judgeResult['verdict'];
 $runtimeMs = $judgeResult['runtime_ms'];
@@ -207,6 +270,54 @@ ok([
  *   Base delta:  Easy=10, Medium=20, Hard=35
  *   Penalty:     -2 per prior WA (this problem), min 1
  */
+function loadProblemTestCases(PDO $pdo, int $problemId, ?string $jsonCases): array {
+    $cases = normalizeProblemTestCases(json_decode($jsonCases ?: '[]', true));
+    if ($cases) {
+        return $cases;
+    }
+
+    if (!tableExists($pdo, 'test_cases')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT input, expected_output
+         FROM test_cases
+         WHERE problem_id = ?
+         ORDER BY id ASC'
+    );
+    $stmt->execute([$problemId]);
+    return normalizeProblemTestCases($stmt->fetchAll());
+}
+
+function normalizeProblemTestCases(mixed $rawCases): array {
+    if (!is_array($rawCases)) {
+        return [];
+    }
+
+    $clean = [];
+    foreach ($rawCases as $case) {
+        if (!is_array($case)) {
+            continue;
+        }
+        $expected = $case['expected_output'] ?? $case['output'] ?? null;
+        if ($expected === null) {
+            continue;
+        }
+        $clean[] = [
+            'input' => (string)($case['input'] ?? ''),
+            'expected_output' => (string)$expected,
+        ];
+    }
+    return $clean;
+}
+
+function tableExists(PDO $pdo, string $table): bool {
+    $stmt = $pdo->prepare('SHOW TABLES LIKE ?');
+    $stmt->execute([$table]);
+    return (bool)$stmt->fetchColumn();
+}
+
 function updateRatings(PDO $pdo, int $userId, array $problem, int $hintsUsed, string $solveMode = 'hardcore'): array {
     $diff = $problem['difficulty'];
 

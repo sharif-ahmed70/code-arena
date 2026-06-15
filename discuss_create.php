@@ -17,7 +17,7 @@ if ($problemId) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Post — Discuss — Code Arena</title>
-    <link rel="stylesheet" href="/code-arena/assets/css/style.css">
+    <link rel="stylesheet" href="/code-arena/assets/css/style.css?v=20260615-ui2">
     <style>
         .create-wrap { max-width:720px; margin:0 auto; }
         .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted);
