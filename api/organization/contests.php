@@ -38,9 +38,8 @@ function orgContestSlug(PDO $pdo, string $title): string {
     return $base . '-' . time() . '-' . random_int(1000, 9999);
 }
 
-function syncContestProblems(PDO $pdo, int $orgId, int $contestId, array $orgProblemIds): void {
+function syncContestProblems(PDO $pdo, int $orgId, int $contestId, array $orgProblemIds, array $platformProblemIds = []): void {
     $pdo->prepare('DELETE FROM contest_problems WHERE contest_id = ?')->execute([$contestId]);
-    if (!$orgProblemIds) return;
     $check = $pdo->prepare(
         'SELECT id, platform_problem_id
          FROM org_problems
@@ -50,12 +49,27 @@ function syncContestProblems(PDO $pdo, int $orgId, int $contestId, array $orgPro
         'INSERT INTO contest_problems (contest_id, problem_id, org_problem_id, points, order_index)
          VALUES (?, ?, ?, ?, ?)'
     );
-    foreach (array_values(array_unique(array_map('intval', $orgProblemIds))) as $index => $orgProblemId) {
+    $orderIndex = 1;
+    foreach (array_values(array_unique(array_map('intval', $orgProblemIds))) as $orgProblemId) {
         if ($orgProblemId <= 0) continue;
         $check->execute([$orgProblemId, $orgId]);
         $problem = $check->fetch();
         if ($problem) {
-            $insert->execute([$contestId, (int)$problem['platform_problem_id'], $orgProblemId, 100, $index + 1]);
+            $insert->execute([$contestId, (int)$problem['platform_problem_id'], $orgProblemId, 100, $orderIndex++]);
+        }
+    }
+
+    if (!$platformProblemIds) return;
+    $platformCheck = $pdo->prepare(
+        'SELECT id
+         FROM problems
+         WHERE id = ? AND is_public = 1 AND COALESCE(is_deleted, 0) = 0'
+    );
+    foreach (array_values(array_unique(array_map('intval', $platformProblemIds))) as $problemId) {
+        if ($problemId <= 0) continue;
+        $platformCheck->execute([$problemId]);
+        if ($platformCheck->fetch()) {
+            $insert->execute([$contestId, $problemId, null, 100, $orderIndex++]);
         }
     }
 }
@@ -66,6 +80,7 @@ if ($method === 'GET') {
         $contest = requireOwnedContest($pdo, $orgId, $contestId);
         $pStmt = $pdo->prepare(
             'SELECT cp.id AS contest_problem_id, cp.problem_id, cp.org_problem_id, cp.order_index, cp.points,
+                    CASE WHEN cp.org_problem_id IS NULL THEN "platform" ELSE "org" END AS source,
                     COALESCE(op.title, p.title) AS title,
                     COALESCE(op.slug, p.slug) AS slug,
                     COALESCE(op.difficulty, p.difficulty) AS difficulty
@@ -105,7 +120,9 @@ if ($method === 'POST') {
     $orgProblemIds = is_array($body['org_problem_ids'] ?? null)
         ? $body['org_problem_ids']
         : (is_array($body['problem_ids'] ?? null) ? $body['problem_ids'] : []);
-    if ($isPublished && $orgStatus !== 'draft' && count(array_filter(array_map('intval', $orgProblemIds))) === 0) {
+    $platformProblemIds = is_array($body['platform_problem_ids'] ?? null) ? $body['platform_problem_ids'] : [];
+    $selectedProblemCount = count(array_filter(array_map('intval', $orgProblemIds))) + count(array_filter(array_map('intval', $platformProblemIds)));
+    if ($isPublished && $orgStatus !== 'draft' && $selectedProblemCount === 0) {
         err('Select at least one problem before publishing a contest');
     }
 
@@ -118,7 +135,7 @@ if ($method === 'POST') {
         );
         $stmt->execute([$orgId, $title, $slug, $description, $start, $end, currentUserId(), 1, $publicStatus, $orgStatus, $isPublished, $visibility]);
         $contestId = (int)$pdo->lastInsertId();
-        syncContestProblems($pdo, $orgId, $contestId, $orgProblemIds);
+        syncContestProblems($pdo, $orgId, $contestId, $orgProblemIds, $platformProblemIds);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -140,7 +157,19 @@ if ($method === 'PUT') {
     $orgProblemIds = is_array($body['org_problem_ids'] ?? null)
         ? $body['org_problem_ids']
         : (is_array($body['problem_ids'] ?? null) ? $body['problem_ids'] : null);
-    if ($isPublished && $orgStatus !== 'draft' && is_array($orgProblemIds) && count(array_filter(array_map('intval', $orgProblemIds))) === 0) {
+    $platformProblemIds = is_array($body['platform_problem_ids'] ?? null) ? $body['platform_problem_ids'] : null;
+    if ($isPublished && $orgStatus !== 'draft' && (is_array($orgProblemIds) || is_array($platformProblemIds))) {
+        $selectedProblemCount = (is_array($orgProblemIds) ? count(array_filter(array_map('intval', $orgProblemIds))) : 0)
+            + (is_array($platformProblemIds) ? count(array_filter(array_map('intval', $platformProblemIds))) : 0);
+        if ($selectedProblemCount === 0) err('Select at least one problem before publishing a contest');
+    }
+    if ($orgProblemIds === null && $platformProblemIds !== null) {
+        $orgProblemIds = [];
+    }
+    if ($platformProblemIds === null && $orgProblemIds !== null) {
+        $platformProblemIds = [];
+    }
+    if ($isPublished && $orgStatus !== 'draft' && is_array($orgProblemIds) && is_array($platformProblemIds) && count(array_filter(array_map('intval', $orgProblemIds))) + count(array_filter(array_map('intval', $platformProblemIds))) === 0) {
         err('Select at least one problem before publishing a contest');
     }
 
@@ -152,7 +181,7 @@ if ($method === 'PUT') {
              WHERE id = ? AND org_id = ?'
         );
         $stmt->execute([$title, $description, $start, $end, $publicStatus, $orgStatus, $isPublished, $visibility, $contestId, $orgId]);
-        if ($orgProblemIds !== null) syncContestProblems($pdo, $orgId, $contestId, $orgProblemIds);
+        if ($orgProblemIds !== null) syncContestProblems($pdo, $orgId, $contestId, $orgProblemIds, $platformProblemIds ?? []);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();

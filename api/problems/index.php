@@ -57,7 +57,7 @@ $savedOnly  = !empty($_GET['saved']);
 $sort       = $_GET['sort']       ?? 'id';
 $order      = strtoupper($_GET['order'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
 $page       = max(1, (int) ($_GET['page'] ?? 1));
-$perPage    = 20;
+$perPage    = min(200, max(20, (int)($_GET['per_page'] ?? 20)));
 $offset     = ($page - 1) * $perPage;
 
 $where  = ['p.is_public = 1', 'COALESCE(p.is_deleted, 0) = 0'];

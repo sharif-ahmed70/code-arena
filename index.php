@@ -1,6 +1,85 @@
 <?php
 require_once 'includes/session.php';
+require_once 'config/db.php';
 $loggedIn = isLoggedIn();
+
+function landingCount(PDO $pdo, string $sql, array $params = []): int {
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('landing count failed: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function landingRows(PDO $pdo, string $sql, array $params = []): array {
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        error_log('landing rows failed: ' . $e->getMessage());
+        return [];
+    }
+}
+
+function landingFormatCount(int $value): string {
+    if ($value >= 1000) {
+        $short = $value / 1000;
+        return ($short >= 10 ? (string)round($short) : rtrim(rtrim(number_format($short, 1), '0'), '.')) . 'K+';
+    }
+    return (string)$value;
+}
+
+$memberCount = landingCount($pdo, "SELECT COUNT(*) FROM users WHERE role <> 'admin' AND COALESCE(is_deleted, 0) = 0");
+$contestCount = landingCount($pdo, 'SELECT COUNT(*) FROM contests WHERE COALESCE(is_published, 1) = 1');
+$problemCount = landingCount($pdo, 'SELECT COUNT(*) FROM problems WHERE is_public = 1 AND COALESCE(is_deleted, 0) = 0');
+$activeUserCount = landingCount(
+    $pdo,
+    'SELECT COUNT(DISTINCT user_id) FROM submissions WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
+);
+if ($activeUserCount === 0) {
+    $activeUserCount = landingCount($pdo, "SELECT COUNT(*) FROM users WHERE role <> 'admin' AND COALESCE(is_deleted, 0) = 0");
+}
+
+$upcomingContests = landingRows(
+    $pdo,
+    'SELECT c.id, c.title, c.description, c.start_time, c.end_time, c.status,
+            COUNT(DISTINCT cp.user_id) AS participant_count
+     FROM contests c
+     LEFT JOIN contest_participants cp
+        ON cp.contest_id = c.id
+       AND COALESCE(cp.status, "registered") NOT IN ("removed", "banned", "rejected")
+     WHERE COALESCE(c.is_published, 1) = 1
+       AND COALESCE(c.visibility, "public") IN ("public", "org")
+       AND COALESCE(c.org_status, "scheduled") IN ("scheduled", "live", "ended")
+       AND c.status IN ("upcoming", "active")
+     GROUP BY c.id
+     ORDER BY CASE c.status WHEN "active" THEN 0 ELSE 1 END, c.start_time ASC
+     LIMIT 12'
+);
+
+$categoryDefs = [
+    ['Arrays', 'arrays', '▦'],
+    ['Dynamic Programming', 'dynamic-programming', 'ϟ'],
+    ['Graphs', 'graphs', '⌘'],
+    ['Greedy', 'greedy', '◎'],
+    ['String', 'string', 'T'],
+    ['Math', 'math', 'Σ'],
+];
+$categoryCounts = [];
+foreach ($categoryDefs as $category) {
+    $categoryCounts[$category[1]] = landingCount(
+        $pdo,
+        'SELECT COUNT(*) FROM problems
+         WHERE is_public = 1
+           AND COALESCE(is_deleted, 0) = 0
+           AND (tags LIKE ? OR FIND_IN_SET(?, REPLACE(tags, " ", "")))',
+        ['%' . $category[1] . '%', $category[1]]
+    );
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -309,8 +388,19 @@ $loggedIn = isLoggedIn();
             grid-template-columns: repeat(3, 1fr);
             gap: 22px;
         }
+        .contest-slider {
+            position: relative;
+            overflow: hidden;
+        }
+        .contest-track {
+            display: flex;
+            gap: 22px;
+            transition: transform .55s ease;
+            will-change: transform;
+        }
         .contest-card {
             min-height: 158px;
+            flex: 0 0 calc((100% - 44px) / 3);
             position: relative;
             padding: 18px 18px 14px;
             border-radius: 9px;
@@ -348,6 +438,9 @@ $loggedIn = isLoggedIn();
         }
         .participants { color: #c7cde0; font-size: 11px; font-weight: 700; }
         .register {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             min-width: 104px;
             min-height: 34px;
             border-radius: 7px;
@@ -357,6 +450,25 @@ $loggedIn = isLoggedIn();
             font-size: 11px;
             background: linear-gradient(135deg, #8339ff, #b44dff);
             box-shadow: 0 10px 24px rgba(130, 55, 255, .35);
+        }
+        .slider-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .slider-dot {
+            width: 8px;
+            height: 8px;
+            border: 0;
+            border-radius: 999px;
+            background: rgba(255,255,255,.24);
+            cursor: pointer;
+            transition: width .25s ease, background .25s ease;
+        }
+        .slider-dot.active {
+            width: 24px;
+            background: linear-gradient(90deg, var(--purple), var(--purple-2));
         }
 
         .categories {
@@ -482,6 +594,7 @@ $loggedIn = isLoggedIn();
             .stat-row { grid-template-columns: repeat(2, max-content); }
             .features { grid-template-columns: repeat(2, 1fr); }
             .contests { grid-template-columns: 1fr; }
+            .contest-card { flex-basis: 100%; }
             .categories { grid-template-columns: repeat(2, 1fr); }
             .cta { grid-template-columns: 1fr; }
             .cta-art { display: none; }
@@ -538,10 +651,10 @@ $loggedIn = isLoggedIn();
                     <a class="btn btn-outline" href="/code-arena/contests.php">Explore Contests</a>
                 </div>
                 <div class="stat-row">
-                    <div class="stat"><span class="icon">♙</span><div><strong>5K+</strong><span>Members</span></div></div>
-                    <div class="stat"><span class="icon">♕</span><div><strong>120+</strong><span>Contests</span></div></div>
-                    <div class="stat"><span class="icon">&lt;/&gt;</span><div><strong>1000+</strong><span>Problems</span></div></div>
-                    <div class="stat"><span class="icon">♧</span><div><strong>300+</strong><span>Active Users</span></div></div>
+                    <div class="stat"><span class="icon">♙</span><div><strong><?= htmlspecialchars(landingFormatCount($memberCount)) ?></strong><span>Members</span></div></div>
+                    <div class="stat"><span class="icon">♕</span><div><strong><?= htmlspecialchars(landingFormatCount($contestCount)) ?></strong><span>Contests</span></div></div>
+                    <div class="stat"><span class="icon">&lt;/&gt;</span><div><strong><?= htmlspecialchars(landingFormatCount($problemCount)) ?></strong><span>Problems</span></div></div>
+                    <div class="stat"><span class="icon">♧</span><div><strong><?= htmlspecialchars(landingFormatCount($activeUserCount)) ?></strong><span>Active Users</span></div></div>
                 </div>
             </div>
             <div class="code-window" aria-label="Code preview">
@@ -583,7 +696,40 @@ $loggedIn = isLoggedIn();
                     <h2>Upcoming Contests</h2>
                     <a class="text-link" href="/code-arena/contests.php">View all contests →</a>
                 </div>
-                <div class="contests">
+                <div class="contest-slider" id="contest-slider">
+                    <div class="contest-track" id="contest-track">
+                        <?php if ($upcomingContests): ?>
+                            <?php foreach ($upcomingContests as $contest): ?>
+                                <?php
+                                    $statusLabel = ($contest['status'] ?? '') === 'active' ? 'Live' : 'Upcoming';
+                                    $startLabel = $contest['start_time'] ? date('M d, Y - h:i A', strtotime($contest['start_time'])) : 'Schedule pending';
+                                    $description = trim((string)($contest['description'] ?? ''));
+                                    if ($description === '') $description = 'Join this contest and solve challenging problems.';
+                                ?>
+                                <article class="contest-card">
+                                    <span class="pill"><?= htmlspecialchars($statusLabel) ?></span>
+                                    <h3><?= htmlspecialchars($contest['title']) ?></h3>
+                                    <div class="date">◷ <?= htmlspecialchars($startLabel) ?></div>
+                                    <p><?= htmlspecialchars(mb_strimwidth($description, 0, 95, '...')) ?></p>
+                                    <div class="contest-foot">
+                                        <span class="participants">♧ <?= (int)$contest['participant_count'] ?> Participants</span>
+                                        <a class="register" href="/code-arena/contest.php?id=<?= (int)$contest['id'] ?>">Register</a>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <article class="contest-card">
+                                <span class="pill">Upcoming</span>
+                                <h3>No contests scheduled</h3>
+                                <div class="date">◷ Check back soon</div>
+                                <p>New contests will appear here as soon as they are published.</p>
+                                <div class="contest-foot"><span class="participants">♧ 0 Participants</span><a class="register" href="/code-arena/contests.php">Explore</a></div>
+                            </article>
+                        <?php endif; ?>
+                    </div>
+                    <div class="slider-dots" id="contest-dots" aria-label="Contest slider navigation"></div>
+                </div>
+                <div class="contests" style="display:none">
                     <article class="contest-card">
                         <span class="pill">Upcoming</span>
                         <h3>CodeArena Weekly Contest #45</h3>
@@ -612,6 +758,17 @@ $loggedIn = isLoggedIn();
                     <a class="text-link" href="/code-arena/problems.php">Explore all problems →</a>
                 </div>
                 <div class="categories">
+                    <?php foreach ($categoryDefs as $category): ?>
+                        <a class="category-card" href="/code-arena/problems.php?tag=<?= urlencode($category[1]) ?>">
+                            <span class="icon"><?= htmlspecialchars($category[2]) ?></span>
+                            <div>
+                                <strong><?= htmlspecialchars($category[0]) ?></strong>
+                                <span><?= (int)($categoryCounts[$category[1]] ?? 0) ?> Problems</span>
+                            </div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+                <div class="categories" style="display:none">
                     <a class="category-card" href="/code-arena/problems.php?tag=arrays"><span class="icon">▦</span><div><strong>Arrays</strong><span>256 Problems</span></div></a>
                     <a class="category-card" href="/code-arena/problems.php?tag=dynamic-programming"><span class="icon">ϟ</span><div><strong>Dynamic Programming</strong><span>312 Problems</span></div></a>
                     <a class="category-card" href="/code-arena/problems.php?tag=graphs"><span class="icon">⌘</span><div><strong>Graphs</strong><span>198 Problems</span></div></a>
@@ -648,6 +805,53 @@ $loggedIn = isLoggedIn();
     </footer>
 
     <script>
+        const contestTrack = document.getElementById('contest-track');
+        const contestDots = document.getElementById('contest-dots');
+        const visibleContestCards = contestTrack ? [...contestTrack.querySelectorAll('.contest-card')] : [];
+        let contestSlideIndex = 0;
+        let contestSlideTimer = null;
+
+        function contestCardsPerView() {
+            return window.innerWidth <= 980 ? 1 : 3;
+        }
+
+        function renderContestDots() {
+            if (!contestDots || !visibleContestCards.length) return;
+            const pages = Math.max(1, visibleContestCards.length - contestCardsPerView() + 1);
+            contestDots.innerHTML = Array.from({ length: pages }, (_, index) =>
+                `<button class="slider-dot ${index === contestSlideIndex ? 'active' : ''}" aria-label="Show contest slide ${index + 1}" onclick="goToContestSlide(${index})"></button>`
+            ).join('');
+        }
+
+        function goToContestSlide(index) {
+            if (!contestTrack || !visibleContestCards.length) return;
+            const maxIndex = Math.max(0, visibleContestCards.length - contestCardsPerView());
+            contestSlideIndex = Math.max(0, Math.min(index, maxIndex));
+            const cardWidth = visibleContestCards[0].getBoundingClientRect().width;
+            const gap = 22;
+            contestTrack.style.transform = `translateX(-${contestSlideIndex * (cardWidth + gap)}px)`;
+            renderContestDots();
+        }
+
+        function startContestSlider() {
+            if (contestSlideTimer) clearInterval(contestSlideTimer);
+            if (!visibleContestCards.length || visibleContestCards.length <= contestCardsPerView()) {
+                renderContestDots();
+                return;
+            }
+            contestSlideTimer = setInterval(() => {
+                const maxIndex = Math.max(0, visibleContestCards.length - contestCardsPerView());
+                goToContestSlide(contestSlideIndex >= maxIndex ? 0 : contestSlideIndex + 1);
+            }, 3500);
+        }
+
+        window.addEventListener('resize', () => {
+            goToContestSlide(contestSlideIndex);
+            startContestSlider();
+        });
+        renderContestDots();
+        startContestSlider();
+
         document.querySelectorAll('.feature-card,.contest-card,.category-card').forEach(card => {
             card.addEventListener('mousemove', event => {
                 const rect = card.getBoundingClientRect();
