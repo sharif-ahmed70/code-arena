@@ -21,6 +21,8 @@ if (!function_exists('orgNavActive')) {
     .org-topbar { position:sticky; top:0; z-index:10; min-height:66px; padding:14px 24px; border-bottom:1px solid var(--border); background:rgba(10,10,15,.94); display:flex; align-items:center; gap:14px; }
     .org-topbar h1 { font-size:1.05rem; margin:0; }
     .org-search { flex:1; max-width:520px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card2); color:var(--text); }
+    .org-profile-icon { width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card2); color:var(--text-muted); font-weight:800; transition:color .18s,border-color .18s,transform .18s; }
+    .org-profile-icon:hover { color:var(--accent); border-color:rgba(0,232,122,.35); transform:translateY(-1px); }
     .org-content { padding:24px; }
     .org-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-card); padding:18px; }
     .org-grid { display:grid; gap:18px; }
@@ -49,5 +51,6 @@ if (!function_exists('orgNavActive')) {
         <header class="org-topbar">
             <h1><?= htmlspecialchars($pageTitle ?? 'Organization') ?></h1>
             <input class="org-search" placeholder="Search organization workspace">
+            <a class="org-profile-icon" href="/code-arena/organization/profile.php" title="Organization Profile"><?= htmlspecialchars(strtoupper(substr($orgShellName, 0, 1))) ?></a>
             <a class="btn-outline" href="/code-arena/api/auth/logout.php">Logout</a>
         </header>

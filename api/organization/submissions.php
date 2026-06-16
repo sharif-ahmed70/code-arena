@@ -109,32 +109,48 @@ $contestId = (int)($_GET['contest_id'] ?? 0);
 if ($mode === 'contests') {
     $stmt = $pdo->prepare(
         'SELECT c.id, c.title, c.slug, c.status, c.org_status, c.start_time, c.end_time,
-                COUNT(DISTINCT cp.user_id) AS total_participants,
-                COUNT(DISTINCT s.id) AS total_submissions,
-                SUM(s.status = "Accepted") AS accepted_submissions
+                (SELECT COUNT(DISTINCT cp.user_id)
+                 FROM contest_participants cp
+                 WHERE cp.contest_id = c.id
+                   AND (cp.org_id = c.org_id OR cp.org_id IS NULL)
+                   AND COALESCE(cp.status, "registered") NOT IN ("removed", "banned", "rejected")) AS total_participants,
+                (SELECT COUNT(DISTINCT s.id)
+                 FROM submissions s
+                 WHERE s.contest_id = c.id
+                   AND s.org_id = c.org_id
+                   AND COALESCE(s.is_practice, 0) = 0) AS total_submissions,
+                (SELECT COUNT(DISTINCT s.id)
+                 FROM submissions s
+                 WHERE s.contest_id = c.id
+                   AND s.org_id = c.org_id
+                   AND COALESCE(s.is_practice, 0) = 0
+                   AND s.status = "Accepted") AS accepted_submissions
          FROM contests c
-         LEFT JOIN contest_participants cp ON cp.contest_id = c.id AND (cp.org_id = c.org_id OR cp.org_id IS NULL)
-         LEFT JOIN submissions s ON s.contest_id = c.id AND s.org_id = c.org_id
          WHERE c.org_id = ?
-         GROUP BY c.id
          ORDER BY c.start_time DESC, c.id DESC'
     );
     $stmt->execute([$orgId]);
     $contests = array_map(function (array $row): array {
+        $statusLabel = contestStatusLabel($row);
         $total = (int)($row['total_submissions'] ?? 0);
         $accepted = (int)($row['accepted_submissions'] ?? 0);
+        if ($statusLabel === 'Upcoming') {
+            $total = 0;
+            $accepted = 0;
+        }
         return [
             'id' => (int)$row['id'],
             'title' => $row['title'],
             'slug' => $row['slug'],
             'status' => $row['status'],
-            'status_label' => contestStatusLabel($row),
+            'status_label' => $statusLabel,
             'start_time' => $row['start_time'],
             'end_time' => $row['end_time'],
             'total_participants' => (int)($row['total_participants'] ?? 0),
             'total_submissions' => $total,
             'accepted_submissions' => $accepted,
             'acceptance_rate' => $total > 0 ? round(($accepted / $total) * 100, 1) : 0,
+            'analytics_available' => $statusLabel !== 'Upcoming',
         ];
     }, $stmt->fetchAll());
     ok(['contests' => $contests]);
@@ -143,6 +159,7 @@ if ($mode === 'contests') {
 if ($mode === 'analytics') {
     if (!$contestId) err('contest_id required');
     $contest = requireOwnedContest($pdo, $orgId, $contestId);
+    $statusLabel = contestStatusLabel($contest);
 
     $filterParams = [];
     $where = submissionFilterWhere($pdo, $orgId, $_GET, $filterParams);
@@ -169,6 +186,60 @@ if ($mode === 'analytics') {
            AND cp.status NOT IN ("removed", "banned", "rejected")',
         [$orgId, $contestId, $orgId]
     );
+
+    $problems = orgAnalyticsRows(
+        $pdo,
+        'SELECT DISTINCT p.id, p.title
+         FROM contest_problems cp
+         JOIN problems p ON p.id = cp.problem_id
+         JOIN contests c ON c.id = cp.contest_id AND c.org_id = ?
+         WHERE cp.contest_id = ?
+         ORDER BY cp.order_index, p.title',
+        [$orgId, $contestId]
+    );
+
+    if ($statusLabel === 'Upcoming') {
+        ok([
+            'contest' => [
+                'id' => (int)$contest['id'],
+                'title' => $contest['title'],
+                'status' => $contest['status'],
+                'org_status' => $contest['org_status'] ?? null,
+                'status_label' => $statusLabel,
+                'start_time' => $contest['start_time'],
+                'end_time' => $contest['end_time'],
+                'analytics_available' => false,
+            ],
+            'overview' => [
+                'total_participants' => (int)($participantOverview['total_participants'] ?? 0),
+                'total_submissions' => 0,
+                'accepted_submissions' => 0,
+                'wrong_submissions' => 0,
+                'acceptance_rate' => 0,
+            ],
+            'charts' => [
+                'submission_trend' => [],
+                'verdict_distribution' => [],
+                'difficulty_success' => [],
+                'participation_distribution' => [],
+            ],
+            'participants' => [
+                'top_performers' => [],
+                'most_active' => [],
+                'first_ac' => [],
+                'highest_wrong' => [],
+            ],
+            'insights' => [
+                'hardest_problem' => null,
+                'most_failed_problem' => null,
+                'peak_submission_time' => null,
+                'weak_topic_area' => null,
+            ],
+            'submissions' => [],
+            'problems' => $problems,
+            'message' => 'Submission analytics will become available when this contest goes live.',
+        ]);
+    }
 
     $trend = orgAnalyticsRows(
         $pdo,
@@ -324,26 +395,16 @@ if ($mode === 'analytics') {
     );
     $submissionStmt->execute($submissionParams);
 
-    $problems = orgAnalyticsRows(
-        $pdo,
-        'SELECT DISTINCT p.id, p.title
-         FROM contest_problems cp
-         JOIN problems p ON p.id = cp.problem_id
-         JOIN contests c ON c.id = cp.contest_id AND c.org_id = ?
-         WHERE cp.contest_id = ?
-         ORDER BY cp.order_index, p.title',
-        [$orgId, $contestId]
-    );
-
     ok([
         'contest' => [
             'id' => (int)$contest['id'],
             'title' => $contest['title'],
             'status' => $contest['status'],
             'org_status' => $contest['org_status'] ?? null,
-            'status_label' => contestStatusLabel($contest),
+            'status_label' => $statusLabel,
             'start_time' => $contest['start_time'],
             'end_time' => $contest['end_time'],
+            'analytics_available' => true,
         ],
         'overview' => [
             'total_participants' => (int)($participantOverview['total_participants'] ?? 0),

@@ -31,10 +31,10 @@ $activeOrgPage = 'submissions';
         .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px}
         .chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
         .chart-card{min-height:250px}
-        .line-chart{height:190px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(255,255,255,.025);overflow:hidden}
-        .line-chart svg{width:100%;height:100%}
-        .bar-chart{height:190px;display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end}
-        .bar{min-height:6px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--green))}
+        .line-chart,.bar-chart{min-height:260px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(255,255,255,.025);overflow:hidden}
+        .line-chart svg,.bar-chart svg{width:100%;height:250px;display:block}
+        .chart-note{padding:18px;color:var(--text-muted);line-height:1.6}
+        .chart-meta{display:flex;justify-content:space-between;gap:12px;color:var(--text-muted);font-size:.74rem;padding:10px 12px 0}
         .analysis-list,.insight-list{display:grid;gap:10px}
         .analysis-item,.insight-item{padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(255,255,255,.035)}
         .analysis-item strong,.insight-item strong{display:block}
@@ -124,7 +124,13 @@ async function loadContestCards(){
     const {ok,data}=await api('/code-arena/api/organization/submissions.php?mode=contests');
     const wrap=document.getElementById('contest-cards');
     if(!ok||!data.success){wrap.innerHTML=`<div class="org-card">${esc(data.message||'Failed to load contests')}</div>`;return;}
-    wrap.innerHTML=(data.data.contests||[]).map(c=>`<article class="contest-analytics-card" onclick="openContest(${c.id})"><div style="display:flex;justify-content:space-between;gap:12px"><h3>${esc(c.title)}</h3><span class="status-pill ${esc(c.status_label)}">${esc(c.status_label)}</span></div><div style="color:var(--text-muted);font-size:.82rem">${esc(c.start_time)} to ${esc(c.end_time)}</div><div class="card-metrics"><div class="card-metric"><strong>${c.total_participants}</strong><span>Participants</span></div><div class="card-metric"><strong>${c.total_submissions}</strong><span>Submissions</span></div><div class="card-metric"><strong>${c.accepted_submissions}</strong><span>Accepted</span></div><div class="card-metric"><strong>${pct(c.acceptance_rate)}</strong><span>Acceptance</span></div></div></article>`).join('')||'<div class="org-card">No contests yet.</div>';
+    wrap.innerHTML=(data.data.contests||[]).map(c=>{
+        const available=Boolean(c.analytics_available);
+        const metrics=available
+            ? `<div class="card-metric"><strong>${c.total_submissions}</strong><span>Submissions</span></div><div class="card-metric"><strong>${c.accepted_submissions}</strong><span>Accepted</span></div><div class="card-metric"><strong>${pct(c.acceptance_rate)}</strong><span>Acceptance</span></div>`
+            : `<div class="card-metric"><strong>Scheduled</strong><span>Status</span></div><div class="card-metric"><strong>-</strong><span>Submissions</span></div><div class="card-metric"><strong>-</strong><span>Acceptance</span></div>`;
+        return `<article class="contest-analytics-card" onclick="openContest(${c.id})"><div style="display:flex;justify-content:space-between;gap:12px"><h3>${esc(c.title)}</h3><span class="status-pill ${esc(c.status_label)}">${esc(c.status_label)}</span></div><div style="color:var(--text-muted);font-size:.82rem">${esc(c.start_time)} to ${esc(c.end_time)}</div><div class="card-metrics"><div class="card-metric"><strong>${c.total_participants}</strong><span>Participants</span></div>${metrics}</div>${available?'':`<p style="color:var(--text-muted);font-size:.82rem;margin:12px 0 0">Submission analytics will appear after the contest starts.</p>`}</article>`;
+    }).join('')||'<div class="org-card">No contests yet.</div>';
 }
 function showContestList(){
     selectedContestId=null;
@@ -153,6 +159,13 @@ async function loadContestAnalytics(){
     detailTitle(d.contest);
     renderKpis(d.overview);
     renderProblemFilter(d.problems);
+    if(!d.contest.analytics_available){
+        ['submission-trend','verdict-chart','difficulty-chart','participation-chart'].forEach(id=>document.getElementById(id).innerHTML='<div class="chart-note">This contest is upcoming. Submission analytics, verdicts, and performance insights will be available after participants start submitting.</div>');
+        ['top-performers','most-active','first-ac','highest-wrong'].forEach(id=>document.getElementById(id).innerHTML='<div class="analysis-item"><span>No submission data yet.</span></div>');
+        renderInsights(d.insights);
+        renderSubmissions([]);
+        return;
+    }
     renderLine('submission-trend',d.charts.submission_trend||[],'submissions','accepted');
     renderBars('verdict-chart',d.charts.verdict_distribution||[],'count','status');
     renderBars('difficulty-chart',d.charts.difficulty_success||[],'success_rate','difficulty');
@@ -180,15 +193,28 @@ function renderProblemFilter(problems){
     filter_problem.value=current;
 }
 function renderBars(id,rows,key,label){
-    const el=document.getElementById(id),max=Math.max(1,...(rows||[]).map(r=>Number(r[key]||0)));
-    el.innerHTML=(rows||[]).length?(rows||[]).slice(0,12).map(r=>`<div class="bar" title="${esc(r[label])}: ${r[key]||0}" style="height:${Math.max(6,Math.round(Number(r[key]||0)/max*100))}%"></div>`).join(''):'<span style="color:var(--text-muted)">No data</span>';
+    const el=document.getElementById(id),items=(rows||[]).slice(0,12);
+    if(!items.length){el.innerHTML='<div class="chart-note">No data available for this chart.</div>';return;}
+    const max=Math.max(1,...items.map(r=>Number(r[key]||0)));
+    const w=640,h=250,left=54,right=18,top=26,bottom=56,plotW=w-left-right,plotH=h-top-bottom;
+    const step=plotW/items.length,barW=Math.max(18,step*.55),yFor=v=>top+plotH-(Number(v||0)/max)*plotH;
+    const ticks=[0,.25,.5,.75,1].map(p=>Math.round(max*p));
+    const grid=ticks.map(t=>{const y=yFor(t);return `<g><line x1="${left}" x2="${w-right}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.08)"/><text x="${left-9}" y="${y+4}" text-anchor="end" fill="#8f8faa" font-size="10">${t}</text></g>`}).join('');
+    const bars=items.map((r,i)=>{const v=Number(r[key]||0),x=left+i*step+(step-barW)/2,y=yFor(v),full=String(r[label]||'-'),short=full.length>11?full.slice(0,10)+'…':full;return `<g><title>${esc(full)}: ${v}</title><rect x="${x}" y="${y}" width="${barW}" height="${Math.max(2,top+plotH-y)}" rx="7" fill="url(#barGrad-${id})"/><text x="${x+barW/2}" y="${Math.max(14,y-7)}" text-anchor="middle" fill="#f0f0f6" font-size="10" font-weight="800">${v}</text><text x="${x+barW/2}" y="${h-24}" text-anchor="middle" fill="#8f8faa" font-size="10">${esc(short)}</text></g>`}).join('');
+    el.innerHTML=`<div class="chart-meta"><span>Y-axis: ${esc(key.replaceAll('_',' '))}</span><span>X-axis: ${esc(label.replaceAll('_',' '))}</span></div><svg viewBox="0 0 ${w} ${h}"><defs><linearGradient id="barGrad-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#8b4dff"/></linearGradient></defs>${grid}<line x1="${left}" x2="${left}" y1="${top}" y2="${top+plotH}" stroke="rgba(255,255,255,.18)"/><line x1="${left}" x2="${w-right}" y1="${top+plotH}" y2="${top+plotH}" stroke="rgba(255,255,255,.18)"/><text x="16" y="${top+plotH/2}" transform="rotate(-90 16 ${top+plotH/2})" text-anchor="middle" fill="#c2c2da" font-size="10">${esc(key.replaceAll('_',' '))}</text>${bars}</svg>`;
 }
 function renderLine(id,rows,key,secondary){
     const el=document.getElementById(id),pts=(rows||[]).slice(-32);
-    if(!pts.length){el.innerHTML='<div style="padding:18px;color:var(--text-muted)">No data</div>';return;}
+    if(!pts.length){el.innerHTML='<div class="chart-note">No trend data available yet.</div>';return;}
     const keys=secondary?[key,secondary]:[key],vals=pts.flatMap(r=>keys.map(k=>Number(r[k]||0))),min=Math.min(...vals),max=Math.max(...vals,min+1),w=640,h=190,p=18;
-    const path=k=>pts.map((r,i)=>{const x=p+i/Math.max(1,pts.length-1)*(w-p*2),y=h-p-((Number(r[k]||0)-min)/(max-min))*(h-p*2);return `${i?'L':'M'}${x.toFixed(1)},${y.toFixed(1)}`}).join(' ');
-    el.innerHTML=`<svg viewBox="0 0 ${w} ${h}"><path d="${path(key)}" fill="none" stroke="#8b4dff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${secondary?`<path d="${path(secondary)}" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`:''}</svg>`;
+    const left=54,right=18,top=24,bottom=42,plotW=w-left-right,plotH=250-top-bottom,hh=250;
+    const xFor=i=>left+i/Math.max(1,pts.length-1)*plotW,yFor=v=>top+plotH-((Number(v||0)-min)/(max-min))*plotH;
+    const path=k=>pts.map((r,i)=>`${i?'L':'M'}${xFor(i).toFixed(1)},${yFor(r[k]).toFixed(1)}`).join(' ');
+    const ticks=[0,.25,.5,.75,1].map(t=>Math.round(min+(max-min)*t));
+    const grid=ticks.map(t=>{const y=yFor(t);return `<g><line x1="${left}" x2="${w-right}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.08)"/><text x="${left-9}" y="${y+4}" text-anchor="end" fill="#8f8faa" font-size="10">${t}</text></g>`}).join('');
+    const labelIdx=[...new Set([0,Math.floor((pts.length-1)/2),pts.length-1])];
+    const labels=labelIdx.map(i=>{const raw=String(pts[i].bucket||pts[i].day||'');return `<text x="${xFor(i)}" y="${hh-22}" text-anchor="middle" fill="#8f8faa" font-size="10">${esc(raw.slice(5,16))}</text>`}).join('');
+    el.innerHTML=`<div class="chart-meta"><span>Y-axis: submissions</span><span>X-axis: time</span></div><svg viewBox="0 0 ${w} ${hh}">${grid}<line x1="${left}" x2="${left}" y1="${top}" y2="${top+plotH}" stroke="rgba(255,255,255,.18)"/><line x1="${left}" x2="${w-right}" y1="${top+plotH}" y2="${top+plotH}" stroke="rgba(255,255,255,.18)"/>${labels}<path d="${path(key)}" fill="none" stroke="#8b4dff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${secondary?`<path d="${path(secondary)}" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`:''}</svg>`;
 }
 function renderAnalysis(id,rows,fn){
     document.getElementById(id).innerHTML=(rows||[]).length?(rows||[]).map(r=>{const [title,meta]=fn(r);return `<div class="analysis-item"><strong>${title}</strong><span>${meta}</span></div>`;}).join(''):'<div class="analysis-item"><span>No data yet.</span></div>';

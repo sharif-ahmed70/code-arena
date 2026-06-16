@@ -85,10 +85,14 @@ $currentAdmin = currentUsername() ?? 'admin';
         }
         .activity-item span, .list-item span { display:block; color:var(--text-muted); font-size:.76rem; margin-top:4px; }
         .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-        .bars { height:190px; display:grid; grid-template-columns:repeat(10,1fr); gap:8px; align-items:end; }
-        .bar { min-height:6px; border-radius:8px 8px 3px 3px; background:linear-gradient(180deg,var(--accent),var(--blue)); }
-        .line-chart { height:190px; position:relative; border:1px solid var(--border); border-radius:var(--radius-sm); background:rgba(255,255,255,.025); overflow:hidden; }
-        .line-chart svg { width:100%; height:100%; display:block; }
+        .bars, .line-chart {
+            min-height:260px; position:relative; border:1px solid var(--border); border-radius:var(--radius-sm);
+            background:rgba(255,255,255,.025); overflow:hidden;
+        }
+        .line-chart svg, .bars svg { width:100%; height:260px; display:block; }
+        .chart-meta { display:flex; justify-content:space-between; gap:12px; color:var(--text-muted); font-size:.74rem; margin-bottom:10px; }
+        .chart-legend { display:flex; gap:12px; flex-wrap:wrap; color:var(--text-muted); font-size:.74rem; }
+        .legend-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
         .analytics-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
         .setting-row { display:grid; grid-template-columns:220px 1fr; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
         .setting-row:last-child { border-bottom:0; }
@@ -507,13 +511,92 @@ async function loadAnalytics() {
         ['DAU / WAU', `${k.latest_dau || 0} / ${k.latest_wau || 0}`],
         ['Avg Rating', k.avg_rating || 0],
     ].map(([label,value]) => `<div class="metric-card"><strong>${value}</strong><span>${label}</span></div>`).join('');
-    renderLine('user-growth-chart', data.data.user_growth || [], 'count');
-    renderLine('submission-chart', data.data.submission_trend || [], 'count', 'accepted');
-    renderBars('contest-chart', data.data.contest_trend || [], 'participants');
-    renderBars('difficulty-chart', data.data.difficulty_performance || [], 'acceptance_rate', 'difficulty');
-    renderLine('activity-chart', data.data.activity_trend || [], 'wau', 'dau');
-    renderLine('rating-chart', data.data.rating_trend || [], 'avg_rating');
+    renderLineChart('user-growth-chart', data.data.user_growth || [], 'count', null, 'Users', 'Date');
+    renderLineChart('submission-chart', data.data.submission_trend || [], 'count', 'accepted', 'Submissions', 'Date');
+    renderBarChart('contest-chart', data.data.contest_trend || [], 'participants', 'day', 'Participants', 'Contest date');
+    renderBarChart('difficulty-chart', data.data.difficulty_performance || [], 'acceptance_rate', 'difficulty', 'Acceptance %', 'Difficulty');
+    renderLineChart('activity-chart', data.data.activity_trend || [], 'wau', 'dau', 'Active users', 'Date');
+    renderLineChart('rating-chart', data.data.rating_trend || [], 'avg_rating', null, 'Average rating', 'Date');
     document.getElementById('role-breakdown').innerHTML = (data.data.role_breakdown || []).map(r => `<div class="list-item"><strong>${safeText(r.role)}</strong><span>${r.count} accounts</span></div>`).join('');
+}
+function chartLabel(raw) {
+    const text = safeText(raw || '-');
+    return text.length > 12 ? text.slice(0, 11) + '…' : text;
+}
+function renderBarChart(id, rows, key, labelKey = 'day', yAxis = 'Value', xAxis = 'Label') {
+    const lastRows = rows.slice(-10);
+    const el = document.getElementById(id);
+    if (!lastRows.length) { el.innerHTML = '<div style="padding:18px;color:var(--text-muted)">No data yet.</div>'; return; }
+    const max = Math.max(1, ...lastRows.map(r => Number(r[key] || 0)));
+    const w = 680, h = 260, left = 54, right = 20, top = 28, bottom = 58;
+    const plotW = w - left - right, plotH = h - top - bottom;
+    const step = plotW / lastRows.length, barW = Math.max(18, step * .56);
+    const yFor = value => top + plotH - (Number(value || 0) / max) * plotH;
+    const ticks = [0, .25, .5, .75, 1].map(p => Math.round(max * p));
+    const grid = ticks.map(t => {
+        const y = yFor(t);
+        return `<g><line x1="${left}" x2="${w - right}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.08)"/><text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#8f8faa" font-size="10">${t}</text></g>`;
+    }).join('');
+    const bars = lastRows.map((row, i) => {
+        const value = Number(row[key] || 0);
+        const x = left + i * step + (step - barW) / 2;
+        const y = yFor(value);
+        const label = safeText(row[labelKey] || row.day || '-');
+        return `<g>
+            <title>${label}: ${value}</title>
+            <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(2, top + plotH - y).toFixed(1)}" rx="7" fill="url(#barGrad-${id})"/>
+            <text x="${(x + barW / 2).toFixed(1)}" y="${Math.max(14, y - 7).toFixed(1)}" text-anchor="middle" fill="#f0f0f6" font-size="11" font-weight="700">${value}</text>
+            <text x="${(x + barW / 2).toFixed(1)}" y="${h - 24}" text-anchor="middle" fill="#8f8faa" font-size="10">${chartLabel(label)}</text>
+        </g>`;
+    }).join('');
+    el.innerHTML = `<div class="chart-meta"><span>Y-axis: ${safeText(yAxis)}</span><span>X-axis: ${safeText(xAxis)}</span></div>
+        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${safeText(yAxis)} by ${safeText(xAxis)}">
+            <defs><linearGradient id="barGrad-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+            ${grid}
+            <line x1="${left}" x2="${left}" y1="${top}" y2="${top + plotH}" stroke="rgba(255,255,255,.18)"/>
+            <line x1="${left}" x2="${w - right}" y1="${top + plotH}" y2="${top + plotH}" stroke="rgba(255,255,255,.18)"/>
+            <text x="16" y="${top + plotH / 2}" transform="rotate(-90 16 ${top + plotH / 2})" text-anchor="middle" fill="#c2c2da" font-size="11">${safeText(yAxis)}</text>
+            <text x="${left + plotW / 2}" y="${h - 6}" text-anchor="middle" fill="#c2c2da" font-size="11">${safeText(xAxis)}</text>
+            ${bars}
+        </svg>`;
+}
+function renderLineChart(id, rows, key, secondaryKey = null, yAxis = 'Value', xAxis = 'Date') {
+    const el = document.getElementById(id);
+    const points = rows.slice(-30);
+    if (!points.length) { el.innerHTML = '<div style="padding:18px;color:var(--text-muted)">No data yet.</div>'; return; }
+    const keys = secondaryKey ? [key, secondaryKey] : [key];
+    const values = points.flatMap(row => keys.map(k => Number(row[k] || 0)));
+    const min = Math.min(...values);
+    const max = Math.max(...values, min + 1);
+    const w = 680, h = 260, left = 56, right = 22, top = 28, bottom = 54;
+    const plotW = w - left - right, plotH = h - top - bottom;
+    const xFor = i => left + (i / Math.max(1, points.length - 1)) * plotW;
+    const yFor = value => top + plotH - ((Number(value || 0) - min) / (max - min)) * plotH;
+    const pathFor = chartKey => points.map((row, i) => `${i === 0 ? 'M' : 'L'}${xFor(i).toFixed(1)},${yFor(row[chartKey]).toFixed(1)}`).join(' ');
+    const ticks = [0, .25, .5, .75, 1].map(p => Math.round(min + (max - min) * p));
+    const grid = ticks.map(t => {
+        const y = yFor(t);
+        return `<g><line x1="${left}" x2="${w - right}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.08)"/><text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#8f8faa" font-size="10">${t}</text></g>`;
+    }).join('');
+    const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
+    const xLabels = labelIndexes.map(i => `<text x="${xFor(i).toFixed(1)}" y="${h - 24}" text-anchor="middle" fill="#8f8faa" font-size="10">${chartLabel(points[i].day || points[i].month || points[i].label)}</text>`).join('');
+    const markers = points.map((row, i) => `<circle cx="${xFor(i).toFixed(1)}" cy="${yFor(row[key]).toFixed(1)}" r="3" fill="#22c55e"><title>${safeText(row.day || row.month || row.label)}: ${row[key] || 0}</title></circle>`).join('');
+    const title = `${safeText(points[0].day || points[0].month || points[0].label)} → ${safeText(points[points.length - 1].day || points[points.length - 1].month || points[points.length - 1].label)}`;
+    const latest = points[points.length - 1] || {};
+    el.innerHTML = `<div class="chart-meta"><span>${title}</span><span>Latest: ${safeText(key)} ${latest[key] ?? 0}${secondaryKey ? ` / ${safeText(secondaryKey)} ${latest[secondaryKey] ?? 0}` : ''}</span></div>
+    <div class="chart-legend"><span><i class="legend-dot" style="background:#22c55e"></i>${safeText(key.replaceAll('_',' '))}</span>${secondaryKey ? `<span><i class="legend-dot" style="background:#a78bfa"></i>${safeText(secondaryKey.replaceAll('_',' '))}</span>` : ''}</div>
+    <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${title}">
+        <defs><linearGradient id="lineGrad-${id}" x1="0" x2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+        ${grid}
+        <line x1="${left}" x2="${left}" y1="${top}" y2="${top + plotH}" stroke="rgba(255,255,255,.18)"/>
+        <line x1="${left}" x2="${w - right}" y1="${top + plotH}" y2="${top + plotH}" stroke="rgba(255,255,255,.18)"/>
+        <text x="16" y="${top + plotH / 2}" transform="rotate(-90 16 ${top + plotH / 2})" text-anchor="middle" fill="#c2c2da" font-size="11">${safeText(yAxis)}</text>
+        <text x="${left + plotW / 2}" y="${h - 6}" text-anchor="middle" fill="#c2c2da" font-size="11">${safeText(xAxis)}</text>
+        ${xLabels}
+        <path d="${pathFor(key)}" fill="none" stroke="url(#lineGrad-${id})" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        ${secondaryKey ? `<path d="${pathFor(secondaryKey)}" fill="none" stroke="rgba(167,139,250,.62)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+        ${markers}
+    </svg>`;
 }
 function renderBars(id, rows, key, labelKey = 'day') {
     const lastRows = rows.slice(-10);

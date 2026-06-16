@@ -172,7 +172,7 @@ foreach ($categoryDefs as $category) {
             height: 100%;
             display: flex;
             align-items: center;
-            gap: 31px;
+            gap: 24px;
             font-size: 12px;
             font-weight: 700;
         }
@@ -624,6 +624,7 @@ foreach ($categoryDefs as $category) {
             </a>
             <div class="nav-links">
                 <a class="active" href="/code-arena/index.php">Home</a>
+                <a href="/code-arena/about.php">About</a>
                 <a href="/code-arena/contests.php">Contests</a>
                 <a href="/code-arena/problems.php">Practice</a>
                 <a href="/code-arena/leaderboard.php">Leaderboard</a>
@@ -799,7 +800,7 @@ foreach ($categoryDefs as $category) {
             <div class="foot-col"><h3>Platform</h3><a href="/code-arena/contests.php">Contests</a><a href="/code-arena/problems.php">Practice</a><a href="/code-arena/leaderboard.php">Leaderboard</a><a href="#">Blog</a></div>
             <div class="foot-col"><h3>Community</h3><a href="/code-arena/discuss.php">Discuss</a><a href="#">Groups</a><a href="/code-arena/contests.php">Events</a><a href="#">Members</a></div>
             <div class="foot-col"><h3>Resources</h3><a href="#">Tutorials</a><a href="#">FAQs</a><a href="#">Rules</a><a href="#">Support</a></div>
-            <div class="foot-col"><h3>Company</h3><a href="#">About Us</a><a href="#">Contact</a><a href="#">Terms</a><a href="#">Privacy</a></div>
+            <div class="foot-col"><h3>Company</h3><a href="/code-arena/about.php">About Us</a><a href="#">Contact</a><a href="#">Terms</a><a href="#">Privacy</a></div>
         </div>
         <div class="container copyright">© 2025 CodeArena. All rights reserved.</div>
     </footer>

@@ -141,9 +141,12 @@ foreach ($recentContests as $contest) {
         .panel-title { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
         .panel-title h2, .panel-title h3 { font-size:1rem; margin:0; }
         .analytics-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:16px; }
-        .bar-chart { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; height:180px; align-items:end; padding-top:12px; }
+        .bar-chart { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; height:210px; align-items:end; padding:22px 4px 20px 34px; border-left:1px solid var(--border); border-bottom:1px solid var(--border); position:relative; }
+        .bar-chart::before { content:"Participants"; position:absolute; left:-20px; top:88px; transform:rotate(-90deg); color:var(--text-muted); font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; }
+        .bar-chart::after { content:"Recent contests"; position:absolute; left:50%; bottom:-2px; transform:translate(-50%, 100%); color:var(--text-muted); font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; }
         .bar-item { display:grid; gap:8px; align-items:end; height:100%; }
         .bar { min-height:8px; border-radius:8px 8px 3px 3px; background:linear-gradient(180deg,var(--accent),var(--blue)); }
+        .bar-value { color:var(--text); font-size:.75rem; font-weight:800; text-align:center; }
         .bar-label { color:var(--text-muted); font-size:.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .rate-ring {
             width:132px; height:132px; border-radius:50%; display:grid; place-items:center; margin:8px auto 12px;
@@ -204,7 +207,7 @@ foreach ($recentContests as $contest) {
             <h1><?= htmlspecialchars($orgName) ?></h1>
             <input class="org-search" placeholder="Search contests, members, submissions">
             <a class="top-icon" href="#announcements" title="Notifications">!</a>
-            <a class="top-icon" href="/code-arena/profile.php" title="Profile"><?= htmlspecialchars(strtoupper(substr(currentUsername() ?? 'O', 0, 1))) ?></a>
+            <a class="top-icon" href="/code-arena/organization/profile.php" title="Organization Profile"><?= htmlspecialchars(strtoupper(substr($orgName, 0, 1))) ?></a>
             <a class="btn-outline" href="/code-arena/api/auth/logout.php">Logout</a>
         </header>
 
@@ -229,6 +232,7 @@ foreach ($recentContests as $contest) {
                                 <?php foreach (array_reverse($graphRows) as $row): ?>
                                 <?php $height = max(8, round(((int)$row['participants'] / $maxParticipants) * 100)); ?>
                                 <div class="bar-item">
+                                    <div class="bar-value"><?= (int)$row['participants'] ?></div>
                                     <div class="bar" style="height:<?= $height ?>%"></div>
                                     <div class="bar-label" title="<?= htmlspecialchars($row['title']) ?>"><?= htmlspecialchars($row['title']) ?></div>
                                 </div>
